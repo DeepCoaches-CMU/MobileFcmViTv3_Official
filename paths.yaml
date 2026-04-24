@@ -1,0 +1,20 @@
+# ============================================================
+# paths.yaml — local path configuration
+# Edit these paths to match your environment before running.
+# ============================================================
+
+datasets_root: datasets
+
+busi_split_dir: datasets/BUSI_split
+
+weights_dir: weights
+
+# Canonical best-checkpoint path for the UltraScanNet baseline
+ultrascannet_checkpoint: weights/ultra_scan_net_BUSI/model_best.pth.tar
+
+# Canonical best-checkpoint path for the MambaVisionFCM baseline
+mambavision_fcm_checkpoint: weights/mobilefcmvit2_net_BUSI/model_best.pth.tar
+
+output_dir: weights
+
+wandb_group: mambavision_fcm_reproduce

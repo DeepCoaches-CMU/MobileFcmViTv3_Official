@@ -1,0 +1,90 @@
+# tuning/tune_05_augmix.yaml
+#
+# Tuning run 05 — Stronger augmentation (mixup/cutmix, color jitter, scale)
+#
+# Motivation:
+#   Explore whether stronger data augmentation improves generalization and robustness.
+#   Based on tune_02_extend, but with more aggressive augmentation.
+#
+# Changes from tune_02_extend.yaml:
+#   mixup: 0.2 → 0.4
+#   cutmix: 0.2 → 0.4
+#   mixup_prob: 0.3 → 0.5
+#   color_jitter: 0.4 → 0.6
+#   scale: [0.08, 1.0] → [0.05, 1.2]
+#   ratio: [0.75, 1.333...] → [0.7, 1.4]
+#   checkpoint_dir / results_dir → tuning/tune_05_augmix/
+
+model: mobilefcmvitv3_s
+num_classes: 3
+
+pretrained_weights: tuning/tune_01_lr_aug/checkpoints/model_best.pth.tar
+
+# ── Feature-space differentiable soft clustering ──────────────────────────────
+fcm_k: 3
+fcm_proj_dim: 32
+tau: 1.0
+fcm_m: 2.0
+membership: softmax
+normalize_feat: true
+fusion_type: attention
+lambda_clust: 0.01
+lambda_entropy: 0.0
+
+# Architecture
+dropout: 0.1
+attn_dropout: 0.0
+ffn_dropout: 0.0
+drop_path_rate: 0.1
+
+# Training
+batch_size: 32
+validation_batch_size: 16
+epochs: 300
+lr: 1.0e-4
+warmup_lr: 1.0e-7
+min_lr: 1.0e-7
+warmup_epochs: 5
+weight_decay: 0.01
+opt: adamw
+opt_eps: 1.0e-8
+opt_betas: [0.9, 0.999]
+clip_grad: 5.0
+clip_mode: norm
+
+# Scheduler
+sched: cosine
+cooldown_epochs: 10
+
+# Augmentation
+color_jitter: 0.6
+hflip: 0.5
+vflip: 0.3
+scale: [0.05, 1.2]
+ratio: [0.7, 1.4]
+mixup: 0.4
+cutmix: 0.4
+mixup_prob: 0.5
+mixup_switch_prob: 0.5
+smoothing: 0.1
+
+# Class imbalance
+use_class_weights: true
+
+# Regularization
+drop_rate: 0.1
+
+# AMP
+amp: true
+
+# Misc
+workers: 8
+pin_mem: true
+log_wandb: true
+model_ema: true
+model_ema_decay: 0.9998
+patience_epochs: 80
+seed: 42
+eval_metric: top1
+checkpoint_dir: tuning/tune_05_augmix/checkpoints
+results_dir: tuning/tune_05_augmix/results
