@@ -1,0 +1,71 @@
+# MobileViTv3-S ablation config — MobileViTv3 only (no FCM)
+# This config disables all FCM-related modules and losses, using only the standard classification head.
+
+model: mobilevitv3_only
+# Uncomment the dataset you want to use
+# data_dirs:
+#   - datasets/BUSI_split
+#   - datasets2/BUSI_split
+num_classes: 3
+pretrained_weights: ""
+
+# FCM settings (all disabled)
+fcm_k: 0
+fcm_proj_dim: 0
+tau: 1.0
+fcm_m: 2.0
+membership: none
+normalize_feat: false
+fusion_type: none
+lambda_clust: 0.0
+lambda_entropy: 0.0
+
+# Training
+batch_size: 32
+validation_batch_size: 16
+epochs: 150
+lr: 6.25e-5
+warmup_lr: 6.25e-8
+min_lr: 6.25e-7
+warmup_epochs: 20
+weight_decay: 0.01
+opt: adamw
+opt_eps: 1.0e-8
+opt_betas: [0.9, 0.999]
+clip_grad: 5.0
+clip_mode: norm
+
+# Scheduler
+sched: cosine
+cooldown_epochs: 10
+
+# Augmentation
+color_jitter: 0.2
+hflip: 0.5
+scale: [0.08, 1.0]
+ratio: [0.75, 1.3333333333333333]
+mixup: 0.2
+cutmix: 0.2
+mixup_prob: 0.3
+mixup_switch_prob: 0.5
+smoothing: 0.1
+
+# Class imbalance
+use_class_weights: true
+
+# Regularization
+drop_rate: 0.1
+
+# AMP
+amp: true
+
+# Misc
+workers: 8
+pin_mem: true
+log_wandb: true
+model_ema: false
+patience_epochs: 40
+seed: 42
+eval_metric: top1
+checkpoint_dir: checkpoints/mobilevitv3_only_BUSI
+results_dir: results/mobilevitv3_only_BUSI

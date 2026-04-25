@@ -11,6 +11,7 @@ Usage:
         --data_dir datasets/BUSI_split
 """
 
+import numpy as np
 import argparse
 import os
 import sys
@@ -24,13 +25,15 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from timm.data import Mixup
 from timm.utils import ModelEmaV2, AverageMeter, accuracy
+
+import matplotlib.pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
 from timm.scheduler import CosineLRScheduler
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -185,8 +188,16 @@ def main():
     # Dirs
     exp_name = args.experiment or cfg.get('experiment',
         f"mobilefcmvitv3_s_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-    ckpt_dir = Path(cfg.get('checkpoint_dir', f'checkpoints/{exp_name}'))
-    res_dir  = Path(cfg.get('results_dir',    f'results/{exp_name}'))
+    # If running an ablation (experiment name starts with 'mobilefcmvitv3_' and contains known ablation suffix),
+    # redirect outputs to ablation_results/ instead of results/ and checkpoints/
+    ablation_prefix = 'mobilefcmvitv3_'
+    ablation_dir = 'ablation_results'
+    if args.experiment and args.experiment.startswith(ablation_prefix):
+        ckpt_dir = Path(f'{ablation_dir}/{exp_name}/checkpoints')
+        res_dir = Path(f'{ablation_dir}/{exp_name}/results')
+    else:
+        ckpt_dir = Path(cfg.get('checkpoint_dir', f'checkpoints/{exp_name}'))
+        res_dir  = Path(cfg.get('results_dir',    f'results/{exp_name}'))
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     res_dir.mkdir(parents=True, exist_ok=True)
 
@@ -244,11 +255,31 @@ def main():
     )
     val_tf = build_val_transform(img_size=img_size)
 
-    train_dir = os.path.join(args.data_dir, 'train')
-    val_dir   = os.path.join(args.data_dir, 'validation')
 
-    dataset_train = BUSIDataset(train_dir, transform=train_tf)
-    dataset_val   = BUSIDataset(val_dir,   transform=val_tf)
+    # Support multiple dataset roots if data_dirs is specified in config
+    data_dirs = cfg.get('data_dirs', None)
+    if data_dirs is not None:
+        if not isinstance(data_dirs, list):
+            raise ValueError('data_dirs in config must be a list of dataset root directories')
+        train_datasets = []
+        val_datasets = []
+        for d in data_dirs:
+            train_dir = os.path.join(d, 'train')
+            val_dir = os.path.join(d, 'validation')
+            if os.path.exists(train_dir):
+                train_datasets.append(BUSIDataset(train_dir, transform=train_tf))
+            if os.path.exists(val_dir):
+                val_datasets.append(BUSIDataset(val_dir, transform=val_tf))
+        from torch.utils.data import ConcatDataset
+        if len(train_datasets) == 0 or len(val_datasets) == 0:
+            raise RuntimeError('No train/validation data found in any data_dirs')
+        dataset_train = ConcatDataset(train_datasets)
+        dataset_val = ConcatDataset(val_datasets)
+    else:
+        train_dir = os.path.join(args.data_dir, 'train')
+        val_dir   = os.path.join(args.data_dir, 'validation')
+        dataset_train = BUSIDataset(train_dir, transform=train_tf)
+        dataset_val   = BUSIDataset(val_dir,   transform=val_tf)
 
     bs = cfg.get('batch_size', 32)
     loader_train = DataLoader(dataset_train, batch_size=bs, shuffle=True,
@@ -362,6 +393,7 @@ def main():
             f"auc={ext['roc_auc_macro']:.4f}"
         )
 
+
         # Save per-epoch JSON
         record = {
             'epoch': epoch,
@@ -381,6 +413,9 @@ def main():
             'confusion_matrix': ext.get('confusion_matrix'),
         }
         save_metrics_json(record, str(res_dir / f'metrics_epoch_{epoch:04d}.json'))
+
+        # Save confusion matrix as image
+        cm = ext.get('confusion_matrix')
 
         # WandB
         if cfg.get('log_wandb') and HAS_WANDB and wandb.run:
@@ -429,6 +464,18 @@ def main():
             }
             torch.save(ckpt, str(ckpt_dir / 'model_best.pth.tar'))
             save_metrics_json(record, str(res_dir / 'best_metrics.json'))
+            # Save best confusion matrix image
+            if cm is not None:
+                disp = ConfusionMatrixDisplay(
+                    confusion_matrix=np.array(cm),
+                    display_labels=ext.get('class_names', ['benign', 'malignant', 'normal'])
+                )
+                fig, ax = plt.subplots(figsize=(5, 5))
+                disp.plot(ax=ax, cmap='Blues', colorbar=False)
+                plt.title(f'Best Confusion Matrix (Epoch {epoch})')
+                plt.tight_layout()
+                plt.savefig(str(res_dir / 'best_confusion_matrix.png'))
+                plt.close(fig)
             _logger.info(f"  ✓ New best: {best_top1:.2f}% at epoch {best_epoch}")
         else:
             epochs_no_improve += 1

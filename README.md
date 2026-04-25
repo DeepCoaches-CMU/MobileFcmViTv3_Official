@@ -1,178 +1,39 @@
-# UltraScanNet: A Mamba-Inspired Hybrid Backbone for Breast Ultrasound Classification
+# UltraScanNet — MobileFCMViTv3
 
-## 📜 Abstract
-UltraScanNet combines:
-- **Convolutional Stem** with learnable 2D positional embeddings  
-- **Hybrid Stage** with MobileViT blocks, spatial gating, and convolutional residuals  
-- **Progressively Global Stages** using a depth-aware mix of:
-  1. **UltraScanUnit** — a state-space module with selective scan, gated convolutional residuals, and low-rank projections  
-  2. **ConvAttnMixers** — spatial-channel mixing modules  
-  3. **Multi-Head Self-Attention Blocks** — for global reasoning  
+**UltraScanNet** is a research codebase for MobileFCMViTv3, a lightweight, high-performance deep learning model for breast ultrasound image classification. The model combines the MobileViTv3 backbone with a differentiable feature-space Fuzzy C-Means (FCM) clustering module, designed to improve classification of challenging malignant cases in the BUSI dataset.
 
-A detailed ablation study evaluates the individual and combined contributions of each component.
+## Key Features
+- **MobileViTv3 Backbone:** Efficient vision transformer architecture for mobile and edge deployment.
+- **Differentiable FCM Clustering:** Integrates feature-space fuzzy clustering for improved representation and decision boundaries, especially for hard malignant/benign cases.
+- **Standalone Metrics Suite:** Computes accuracy, F1, ROC-AUC, PR-AUC, and confidence intervals without external dependencies.
+- **SLURM Integration:** Ready-to-use scripts for training, evaluation, ablation, and tuning on SLURM clusters.
+- **WandB Logging:** Integrated experiment tracking and visualization.
 
-## 📊 Performance on BUSI Dataset
-UltraScanNet achieves:
-- **Top-1 Accuracy:** **91.67%**
-- **Precision:** **0.9072**
-- **Recall:** **0.9174**
-- **F1-Score:** **0.9096**
+## Project Structure
+- `mobilefcmvitv3/` — Model, clustering, training, validation, and utility scripts
+- `tuning/` — Hyperparameter tuning configs and results
+- `slurm_scripts/` — SLURM job scripts for all experiments
+- `datasets/` — BUSI dataset splits
+- `fcm/` — Pixel-space FCM utilities (not used in main model)
+- `paths.yaml` — Centralized path management
 
-### 📈 Comparison with SOTA Models
-| Model              | Top-1 Accuracy (%) |
-|--------------------|--------------------|
-| **UltraScanNet**   | **91.67**          |
-| ViT-Small          | 91.67              |
-| MaxViT-Tiny        | 91.67              |
-| MambaVision        | 91.02              |
-| Swin-Tiny          | 90.38              |
-| ConvNeXt-Tiny      | 89.74              |
-| ResNet-50          | 85.90              |
+## How to Run
+1. **Set up your Python environment:**
+	- Python 3.10+
+	- Install dependencies from `requirements.txt`
+	- Set `PYTHONPATH` to the repo root
+2. **Prepare the dataset:**
+	- Place BUSI data in `datasets/BUSI_split/`
+3. **Train the model:**
+	- Submit a job, e.g.:
+	  ```bash
+	  sbatch slurm_scripts/mobilefcmvitv3_training.slurm tuning/tune_01_lr_aug.yaml tune_01_lr_aug
+	  ```
+4. **Evaluate or tune:**
+	- Use the corresponding SLURM scripts and config files in `tuning/`
 
-UltraScanNet ranks among the **top-performing models**, providing competitive accuracy with fewer parameters compared to several transformer-based backbones.
+## Citation
+If you use this codebase, please cite the original MobileViTv3 and FCM papers, and reference this repository.
 
-## 🧪 Key Features
-- **Learnable 2D Positional Embeddings** in the early convolutional stem  
-- **Hybrid Local-Global Encoding** for efficient feature extraction  
-- **Depth-Aware Operation Scheduling** (UltraScanUnit → ConvAttnMixer → MHSA)  
-- **Extensive Benchmarking** against CNN, Transformer, and Mamba-based architectures  
-- **Per-Class & Global Performance Analysis**
-
-
-## 📊 Confusion Matrices
-
-Below are the confusion matrices for 5 evaluated models on the BUSI dataset:
-
-| UltraScanNet | MambaVision Baseline | 
-|--------------|----------------------|
-| ![UltraScanNet CM](cm/ultrascannet.png) | ![MambaVision CM](cm/mambavision.png) | 
-
-| MaxViT-Tiny | DenseNet-121 | ViT-Small |
-|-------------|--------------| -----------|
-| ![MaxViT CM](cm/maxvit.png) | ![DenseNet CM](cm/densenet.png) | ![ViT-Small CM](cm/vit_small.png) |
-
-
-## 🔍 Grad-CAM Visualizations
-
-Grad-CAM helps visualize which regions of the breast ultrasound images contributed most to the model’s decision.  
-Below are some examples from **UltraScanNet** for each class:
-
-| Benign | Malignant | Normal |
-|--------|-----------|--------|
-| ![Benign CAM](grad-cam/benign_class0_cam.png) | ![Malignant CAM](grad-cam/malignant_class1_cam.png) | ![Normal CAM](grad-cam/normal_class2_cam.png) |
-
-
-## Reproducibility Guide
-
-This section describes the exact workflow used in this repository to reproduce training and evaluation runs.
-
-### 1) Environment setup
-
-```bash
-cd /path/to/UltraScanNet
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Extra runtime dependencies used by training/validation scripts
-pip install mamba_ssm --no-build-isolation
-pip install torchinfo matplotlib scikit-learn thop
-```
-
-### 2) Paths and data/weights setup
-
-All runtime paths are read from [paths.yaml](paths.yaml). Keep them repo-relative for portability.
-
-Prepare dataset split and baseline weights:
-
-```bash
-python3 setup_dataset.py
-python3 setup_weights.py
-```
-
-### 3) Baseline training (BUSI)
-
-Local launcher:
-
-```bash
-python3 ultrascannet/launch_experiments.py
-```
-
-Or SLURM (recommended on cluster):
-
-```bash
-sbatch slurm_scripts/training.slurm
-```
-
-For full launch script execution under SLURM:
-
-```bash
-sbatch slurm_scripts/launch_experiments.slurm
-```
-
-### 4) Ablation run
-
-Local launcher:
-
-```bash
-python3 ultrascannet/launch_experiments_ablation.py
-```
-
-Or SLURM:
-
-```bash
-sbatch slurm_scripts/launch_experiments_ablation.slurm
-```
-
-### 5) Validation / extended metrics
-
-Local launcher:
-
-```bash
-python3 ultrascannet/launch_validation.py
-```
-
-Or SLURM:
-
-```bash
-sbatch slurm_scripts/evaluation.slurm
-```
-
-### 6) Where metrics are written
-
-Per-experiment training outputs are written to:
-
-- `weights/<experiment_name>/summary.csv` (epoch-by-epoch train/eval metrics)
-- `weights/<experiment_name>/best.txt` (best top1 + epoch)
-- `weights/<experiment_name>/model_best.pth.tar` (best checkpoint)
-
-SLURM logs are written to:
-
-- `slurm_logs/training_<jobid>.out/.err`
-- `slurm_logs/launch_experiments_<jobid>.out/.err`
-- `slurm_logs/launch_ablation_<jobid>.out/.err`
-- `slurm_logs/evaluation_<jobid>.out/.err`
-
-Evaluation logs include extended metrics (precision/recall/F1, classwise stats, AUC, confusion matrix).
-
-### 7) Consolidated run summaries
-
-Generated summaries across runs are saved in:
-
-- `ultrascannet/metrics/run_metrics_summary.csv`
-- `ultrascannet/metrics/run_metrics_success_only.csv`
-
-These can be regenerated by rerunning the scripts; they are not required source files.
-
-### Notes for paper-consistent runs
-
-- Use the BUSI split generated by `setup_dataset.py` (80/20 stratified split).
-- Do not change model architecture/config if you are comparing against baseline values.
-- Prefer SLURM scripts in `slurm_scripts/` to ensure consistent environment setup and logging.
-
-
-### 📥 Pretrained Weights & Configurations
-
-We provide **pretrained weights** and the **configuration files** so that you can reproduce our results.
-
-- **OneDrive Link:** [Download Here](https://uptro29158-my.sharepoint.com/:f:/g/personal/alexandra_laicu-hausberger_student_upt_ro/Em88eUDjtxBKmFMdmV75XBYB-AmQabzwnSjD-IzuwCstqA)
+## License
+This project is for academic research and benchmarking. See LICENSE for details.

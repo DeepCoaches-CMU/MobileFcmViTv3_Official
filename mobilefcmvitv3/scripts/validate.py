@@ -20,6 +20,7 @@ import sys
 from contextlib import suppress
 from functools import partial
 from pathlib import Path
+import os
 
 import numpy as np
 import torch
@@ -129,16 +130,16 @@ def evaluate_tta(model, dataset, tta_transforms, amp_autocast, batch_size=16):
 def main():
     args = parse_args()
 
-    cfg = {}
-    if args.config:
-        with open(args.config) as f:
-            cfg = yaml.safe_load(f)
+    # Load config
+    if not args.config:
+        raise ValueError('Config file must be specified with -c or --config')
+    with open(args.config) as f:
+        cfg = yaml.safe_load(f)
 
-    # Model
-    in_chans = 3
+    # Model initialization
     model = MobileFCMViTv3(
         num_classes=cfg.get('num_classes', 3),
-        in_chans=in_chans,
+        in_chans=3,
         fcm_k=cfg.get('fcm_k', 3),
         fcm_proj_dim=cfg.get('fcm_proj_dim', 32),
         tau=cfg.get('tau', 1.0),
@@ -146,12 +147,56 @@ def main():
         membership=cfg.get('membership', 'softmax'),
         normalize_feat=cfg.get('normalize_feat', True),
         fusion_type=cfg.get('fusion_type', 'attention'),
+        drop_path_rate=cfg.get('drop_path_rate', 0.1),
         dropout=cfg.get('dropout', 0.1),
         attn_dropout=cfg.get('attn_dropout', 0.0),
         ffn_dropout=cfg.get('ffn_dropout', 0.0),
-    ).cuda()
+    )
+    model = model.cuda()
 
-    # Load checkpoint — prefer live state_dict; use EMA only if explicitly requested
+    # Data
+    data_dirs = cfg.get('data_dirs', None)
+    amp_autocast = partial(torch.amp.autocast, 'cuda') if cfg.get('amp', True) else suppress
+    from mobilefcmvitv3.utils.dataset import BUSIDataset
+    if data_dirs is not None:
+        if not isinstance(data_dirs, list):
+            raise ValueError('data_dirs in config must be a list of dataset root directories')
+        datasets = []
+        for d in data_dirs:
+            val_dir = str(Path(d) / args.split)
+            if os.path.exists(val_dir):
+                datasets.append(BUSIDataset(val_dir, transform=build_val_transform(img_size=224)))
+        from torch.utils.data import ConcatDataset
+        if len(datasets) == 0:
+            raise RuntimeError('No data found in any data_dirs for split: ' + args.split)
+        dataset = ConcatDataset(datasets)
+        class_names = getattr(datasets[0], 'classes', None) if datasets else None
+    else:
+        val_dir = str(Path(args.data_dir) / args.split)
+        dataset = BUSIDataset(val_dir, transform=build_val_transform(img_size=224))
+        class_names = getattr(dataset, 'classes', None)
+    if args.tta:
+        _logger.info("Running TTA (8 views)...")
+        tta_tfs = build_tta_transforms(img_size=224)
+        # Dataset with placeholder transform — evaluate_tta swaps it per view
+        if data_dirs is not None:
+            # Use first dataset for TTA (ConcatDataset not supported for TTA)
+            tta_dataset = datasets[0] if datasets else None
+            summary = evaluate_tta(model, tta_dataset, tta_tfs, amp_autocast,
+                                  batch_size=cfg.get('validation_batch_size', 16))
+        else:
+            summary = evaluate_tta(model, dataset, tta_tfs, amp_autocast,
+                                  batch_size=cfg.get('validation_batch_size', 16))
+    else:
+        loader = DataLoader(
+            dataset,
+            batch_size=cfg.get('validation_batch_size', 16),
+            shuffle=False,
+            num_workers=cfg.get('workers', 8),
+            pin_memory=True,
+        )
+        summary = evaluate(model, loader, amp_autocast)
+    _logger.info(f"Validation on {args.split}: {len(dataset)} samples | classes: {class_names}")
     ckpt = torch.load(args.checkpoint, map_location='cpu', weights_only=False)
     if args.use_ema and ckpt.get('ema_state_dict') is not None:
         state = ckpt['ema_state_dict']
@@ -224,7 +269,12 @@ def main():
     out_path = args.output_json
     if not out_path:
         suffix = '_tta' if args.tta else ''
-        out_path = str(Path(args.checkpoint).parent / f'evaluation_metrics{suffix}.json')
+        # If checkpoint is in ablation_results, save metrics there too
+        ckpt_parent = Path(args.checkpoint).parent
+        if 'ablation_results' in str(ckpt_parent):
+            out_path = str(ckpt_parent / f'evaluation_metrics{suffix}.json')
+        else:
+            out_path = str(ckpt_parent / f'evaluation_metrics{suffix}.json')
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     save_metrics_json(record, out_path)

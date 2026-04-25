@@ -113,10 +113,15 @@ def main():
 
     for suffix, extra_args in ABLATIONS:
         experiment_name = f'mobilefcmvitv3_{suffix}'
+        # Always set output dirs to ablation_results for ablation runs
+        ablation_ckpt_dir = f'ablation_results/{experiment_name}/checkpoints'
+        ablation_res_dir = f'ablation_results/{experiment_name}/results'
         cmd = [
             sys.executable, str(TRAIN_SCRIPT),
             '--data_dir', busi_dir,
             '--experiment', experiment_name,
+            f'--checkpoint_dir={ablation_ckpt_dir}',
+            f'--results_dir={ablation_res_dir}',
         ] + extra_args
 
         print(f'\n🔬 Ablation: {experiment_name}')
