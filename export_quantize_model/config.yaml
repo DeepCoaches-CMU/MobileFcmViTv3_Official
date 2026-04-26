@@ -1,0 +1,19 @@
+# Configuration file for export and quantization
+# Edit these values to customize export behavior
+
+checkpoint_path: checkpoints/mobilefcmvitv3_s_BUSI/model_best.pth.tar
+export_dir: output/
+img_size: 224
+num_classes: 3
+# Quantization
+quantize: true
+# CoreML export (iOS)
+export_coreml: true
+# ONNX export
+export_onnx: true
+# TorchScript export
+export_torchscript: true
+# Batch size for calibration (quantization)
+calibration_batch_size: 8
+# Use dummy data for calibration (set to false to use real data loader)
+use_dummy_calibration: false
