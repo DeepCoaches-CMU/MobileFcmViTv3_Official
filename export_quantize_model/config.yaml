@@ -1,7 +1,7 @@
 # Configuration file for export and quantization
 # Edit these values to customize export behavior
 
-checkpoint_path: checkpoints/mobilefcmvitv3_s_BUSI/model_best.pth.tar
+checkpoint_path: tuning/tune_05_augmix/checkpoints/model_best.pth.tar
 export_dir: output/
 img_size: 224
 num_classes: 3

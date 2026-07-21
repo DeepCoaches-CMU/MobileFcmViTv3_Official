@@ -24,26 +24,11 @@ from collections import OrderedDict
 from pathlib import Path
 from timm.models.registry import register_model
 
-from .mobilevitv3_block import ConvLayer, InvertedResidual, MobileViTv3Block
+from .mobilevitv3_block import (
+    ConvLayer, InvertedResidual, MobileViTv3Block,
+    MOBILEVITV3_S_CONFIG as _S_CONFIG,
+)
 from .soft_clustering import SoftClusteringLayer
-
-
-# ── MobileViTv3-S config (mode='small') ──────────────────────────────────────
-# Matches cvnets config/mobilevit.py mode='small' exactly.
-_S_CONFIG = {
-    'layer_1': {'out': 32,  'blocks': 1, 'stride': 1, 'expand': 4},
-    'layer_2': {'out': 64,  'blocks': 3, 'stride': 2, 'expand': 4},
-    'layer_3': {'out': 96,  'blocks': 1, 'stride': 2, 'expand': 4,
-                'tr_dim': 144, 'ffn_dim': 288, 'tr_blocks': 2, 'head_dim': 16,
-                'patch_h': 2, 'patch_w': 2},
-    'layer_4': {'out': 128, 'blocks': 1, 'stride': 2, 'expand': 4,
-                'tr_dim': 192, 'ffn_dim': 384, 'tr_blocks': 4, 'head_dim': 32,
-                'patch_h': 2, 'patch_w': 2},
-    'layer_5': {'out': 160, 'blocks': 1, 'stride': 2, 'expand': 4,
-                'tr_dim': 240, 'ffn_dim': 480, 'tr_blocks': 3, 'head_dim': 16,
-                'patch_h': 2, 'patch_w': 2},
-    'exp_factor': 4,   # 160 * 4 = 640
-}
 
 
 # ── Fusion modules ─────────────────────────────────────────────────────────────

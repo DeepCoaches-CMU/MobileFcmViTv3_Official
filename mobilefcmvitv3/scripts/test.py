@@ -49,8 +49,11 @@ def parse_args():
     p.add_argument('--checkpoint', type=str, required=True)
     p.add_argument('--data_dir', type=str, default='datasets/BUSI_split')
     p.add_argument('--split', type=str, default='validation',
-                   choices=['train', 'validation'])
+                   choices=['train', 'validation', 'test'])
     p.add_argument('--output_dir', type=str, default='results/mobilefcmvitv3_s_BUSI')
+    p.add_argument('--no_ema', action='store_true', default=False,
+                   help='Use live model weights instead of EMA weights '
+                        '(default: prefer EMA weights when present, matching validate.py)')
     return p.parse_args()
 
 
@@ -167,9 +170,14 @@ def main():
         ffn_dropout=cfg.get('ffn_dropout', 0.0),
     ).cuda()
 
-    # Load checkpoint — prefer EMA weights
+    # Load checkpoint — prefer EMA weights by default (matches validate.py), unless --no_ema
     ckpt = torch.load(args.checkpoint, map_location='cpu', weights_only=False)
-    state = ckpt.get('ema_state_dict') or ckpt.get('state_dict', ckpt)
+    if not args.no_ema and ckpt.get('ema_state_dict') is not None:
+        state = ckpt['ema_state_dict']
+        _logger.info("Using EMA weights")
+    else:
+        state = ckpt.get('state_dict', ckpt)
+        _logger.info("Using live model weights")
     state = {k.replace('module.', ''): v for k, v in state.items()}
     model.load_state_dict(state, strict=False)
     _logger.info(f"Loaded: {args.checkpoint}")

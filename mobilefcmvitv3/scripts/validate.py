@@ -48,11 +48,12 @@ def parse_args():
     p.add_argument('--data_dir', type=str, default='datasets/BUSI_split')
     p.add_argument('--output_json', type=str, default='')
     p.add_argument('--split', type=str, default='validation',
-                   choices=['train', 'validation'])
+                   choices=['train', 'validation', 'test'])
     p.add_argument('--tta', action='store_true', default=False,
                    help='Enable Test-Time Augmentation (8 views averaged)')
-    p.add_argument('--use_ema', action='store_true', default=False,
-                   help='Use EMA weights instead of live model weights')
+    p.add_argument('--no_ema', action='store_true', default=False,
+                   help='Use live model weights instead of EMA weights '
+                        '(default: prefer EMA weights when present, matching test.py)')
     return p.parse_args()
 
 
@@ -154,51 +155,9 @@ def main():
     )
     model = model.cuda()
 
-    # Data
-    data_dirs = cfg.get('data_dirs', None)
-    amp_autocast = partial(torch.amp.autocast, 'cuda') if cfg.get('amp', True) else suppress
-    from mobilefcmvitv3.utils.dataset import BUSIDataset
-    if data_dirs is not None:
-        if not isinstance(data_dirs, list):
-            raise ValueError('data_dirs in config must be a list of dataset root directories')
-        datasets = []
-        for d in data_dirs:
-            val_dir = str(Path(d) / args.split)
-            if os.path.exists(val_dir):
-                datasets.append(BUSIDataset(val_dir, transform=build_val_transform(img_size=224)))
-        from torch.utils.data import ConcatDataset
-        if len(datasets) == 0:
-            raise RuntimeError('No data found in any data_dirs for split: ' + args.split)
-        dataset = ConcatDataset(datasets)
-        class_names = getattr(datasets[0], 'classes', None) if datasets else None
-    else:
-        val_dir = str(Path(args.data_dir) / args.split)
-        dataset = BUSIDataset(val_dir, transform=build_val_transform(img_size=224))
-        class_names = getattr(dataset, 'classes', None)
-    if args.tta:
-        _logger.info("Running TTA (8 views)...")
-        tta_tfs = build_tta_transforms(img_size=224)
-        # Dataset with placeholder transform — evaluate_tta swaps it per view
-        if data_dirs is not None:
-            # Use first dataset for TTA (ConcatDataset not supported for TTA)
-            tta_dataset = datasets[0] if datasets else None
-            summary = evaluate_tta(model, tta_dataset, tta_tfs, amp_autocast,
-                                  batch_size=cfg.get('validation_batch_size', 16))
-        else:
-            summary = evaluate_tta(model, dataset, tta_tfs, amp_autocast,
-                                  batch_size=cfg.get('validation_batch_size', 16))
-    else:
-        loader = DataLoader(
-            dataset,
-            batch_size=cfg.get('validation_batch_size', 16),
-            shuffle=False,
-            num_workers=cfg.get('workers', 8),
-            pin_memory=True,
-        )
-        summary = evaluate(model, loader, amp_autocast)
-    _logger.info(f"Validation on {args.split}: {len(dataset)} samples | classes: {class_names}")
+    # Load checkpoint — prefer EMA weights by default (matches test.py), unless --no_ema
     ckpt = torch.load(args.checkpoint, map_location='cpu', weights_only=False)
-    if args.use_ema and ckpt.get('ema_state_dict') is not None:
+    if not args.no_ema and ckpt.get('ema_state_dict') is not None:
         state = ckpt['ema_state_dict']
         _logger.info("Using EMA weights")
     else:
@@ -215,19 +174,37 @@ def main():
     _logger.info(f"Params: {params_M}M | FLOPs: {flops_G}G | Inference: {inf_ms}ms")
 
     # Data
-    val_dir = str(Path(args.data_dir) / args.split)
+    data_dirs = cfg.get('data_dirs', None)
     amp_autocast = partial(torch.amp.autocast, 'cuda') if cfg.get('amp', True) else suppress
+
+    if data_dirs is not None:
+        if not isinstance(data_dirs, list):
+            raise ValueError('data_dirs in config must be a list of dataset root directories')
+        from torch.utils.data import ConcatDataset
+        sub_datasets = []
+        for d in data_dirs:
+            split_dir = str(Path(d) / args.split)
+            if os.path.exists(split_dir):
+                sub_datasets.append(BUSIDataset(split_dir, transform=build_val_transform(img_size=224)))
+        if len(sub_datasets) == 0:
+            raise RuntimeError('No data found in any data_dirs for split: ' + args.split)
+        dataset = ConcatDataset(sub_datasets)
+        class_names = getattr(sub_datasets[0], 'classes', None)
+        tta_dataset_source = sub_datasets[0]
+    else:
+        val_dir = str(Path(args.data_dir) / args.split)
+        dataset = BUSIDataset(val_dir, transform=build_val_transform(img_size=224))
+        class_names = getattr(dataset, 'classes', None)
+        tta_dataset_source = dataset
 
     if args.tta:
         _logger.info("Running TTA (8 views)...")
         tta_tfs = build_tta_transforms(img_size=224)
-        # Dataset with placeholder transform — evaluate_tta swaps it per view
-        dataset = BUSIDataset(val_dir, transform=tta_tfs[0])
+        tta_dataset_source.transform = tta_tfs[0]
         _logger.info(f"Evaluating on {args.split}: {len(dataset)} samples")
-        results = evaluate_tta(model, dataset, tta_tfs, amp_autocast,
+        results = evaluate_tta(model, tta_dataset_source, tta_tfs, amp_autocast,
                                batch_size=cfg.get('validation_batch_size', 16))
     else:
-        dataset = BUSIDataset(val_dir, transform=build_val_transform(img_size=224))
         loader = DataLoader(dataset, batch_size=cfg.get('validation_batch_size', 16),
                             shuffle=False, num_workers=cfg.get('workers', 8),
                             pin_memory=True)
@@ -238,7 +215,6 @@ def main():
                  (f" | Loss: {results['loss']:.4f}" if not args.tta else " (TTA)"))
 
     # Extended metrics
-    class_names = getattr(dataset, 'classes', None)
     ext = compute_extended_metrics(
         results['targets'], results['preds'], results['probs'],
         class_names=class_names, n_boot=500

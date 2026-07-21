@@ -76,7 +76,7 @@ def export_onnx(model):
     torch.onnx.export(
         model, sample, onnx_path,
         input_names=['input'], output_names=['output'],
-        opset_version=12, dynamic_axes={'input': {0: 'batch'}, 'output': {0: 'batch'}}
+        opset_version=14, dynamic_axes={'input': {0: 'batch'}, 'output': {0: 'batch'}}
     )
     print(f"ONNX model saved to {onnx_path}")
 

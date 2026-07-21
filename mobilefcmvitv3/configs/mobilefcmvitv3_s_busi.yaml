@@ -6,10 +6,12 @@ model: mobilefcmvitv3_s
 data_dir: datasets/BUSI_split
 num_classes: 3
 
-# Pretrained MobileViTv3-S weights — VOC segmentation checkpoint (v1).
-# Segmentation pretraining gives richer spatial features than ImageNet
-# classification, which is more relevant for medical image analysis.
-# The encoder. prefix is stripped automatically by load_pretrained.
+# This config reproduces the final headline model by warm-starting from the
+# best tuning run's own converged checkpoint (tune_05_augmix) — it is NOT the
+# config used for ablations. Ablations use ablation_base.yaml, which instead
+# warm-starts every "_pretrained" variant from a common untrained-on-BUSI
+# checkpoint (VOC segmentation pretraining), so the ablated component has a
+# chance to actually affect the outcome.
 pretrained_weights: tuning/tune_05_augmix/checkpoints/model_best.pth.tar
 
 # ── Feature-space differentiable soft clustering ─────────────────────────────

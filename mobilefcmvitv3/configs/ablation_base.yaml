@@ -1,0 +1,90 @@
+# MobileFCMViTv3-S ablation BASE config for BUSI (3-class breast ultrasound)
+#
+# Same architecture/training hyperparameters as mobilefcmvitv3_s_busi.yaml,
+# but pretrained_weights is fixed to the common untrained-on-BUSI baseline
+# (the VOC segmentation checkpoint) instead of a fine-tuned BUSI checkpoint.
+#
+# All "_pretrained" ablation variants in ablation.py load this config so they
+# all warm-start from the same not-yet-converged point — using the headline
+# model's own converged checkpoint here would let every ablation inherit an
+# already-optimal solution, making it impossible for the ablated component to
+# show any effect within a normal epoch budget.
+
+model: mobilefcmvitv3_s
+data_dir: datasets/BUSI_split
+num_classes: 3
+
+# Common untrained-on-BUSI baseline for all "_pretrained" ablation variants —
+# VOC segmentation checkpoint (v1). The encoder. prefix is stripped
+# automatically by load_pretrained.
+pretrained_weights: baseline/Models/MobileViTv3-v1/results_segmentation/mobilevitv3_S_voc_e50_7959/checkpoint_ema_best.pt
+
+# ── Feature-space differentiable soft clustering ─────────────────────────────
+fcm_k: 3              # number of cluster prototypes (K)
+fcm_proj_dim: 32      # project 640-ch features → 32-ch before clustering
+tau: 1.0              # softmax temperature (lower = sharper assignments)
+fcm_m: 2.0            # fuzziness exponent for FCM-style membership
+membership: softmax   # 'softmax' or 'fcm'
+normalize_feat: true  # L2-normalise features before distance computation
+fusion_type: attention # 'attention' or 'concat'
+lambda_clust: 0.1     # weight of compactness loss
+lambda_entropy: 0.0  # weight of entropy regularisation loss
+
+# Architecture
+dropout: 0.2
+attn_dropout: 0.0
+ffn_dropout: 0.0
+drop_path_rate: 0.2
+
+# Training
+batch_size: 32
+validation_batch_size: 16
+epochs: 300
+lr: 1.0e-4
+warmup_lr: 1.0e-7
+min_lr: 1.0e-7
+warmup_epochs: 5
+weight_decay: 0.02
+opt: adamw
+opt_eps: 1.0e-8
+opt_betas: [0.9, 0.999]
+clip_grad: 5.0
+clip_mode: norm
+
+# Scheduler
+sched: cosine
+cooldown_epochs: 10
+
+# Augmentation
+color_jitter: 0.4
+hflip: 0.5
+vflip: 0.3
+scale: [0.08, 1.0]
+ratio: [0.75, 1.3333333333333333]
+mixup: 0.2
+cutmix: 0.2
+mixup_prob: 0.3
+mixup_switch_prob: 0.5
+smoothing: 0.1
+
+# Class imbalance
+use_class_weights: true
+class_weights: [1.157, 1.984, 1.127]  # [benign, malignant, normal]
+
+# Regularization
+drop_rate: 0.1
+
+# AMP
+amp: true
+
+# Misc
+workers: 8
+pin_mem: true
+log_wandb: true
+model_ema: true
+model_ema_decay: 0.9998
+patience_epochs: 80
+seed: 42
+eval_metric: top1
+checkpoint_dir: checkpoints/mobilefcmvitv3_s_BUSI_ablation_base
+results_dir: results/mobilefcmvitv3_s_BUSI_ablation_base
