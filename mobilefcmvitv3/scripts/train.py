@@ -27,7 +27,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler, ConcatDataset
 from torchvision.datasets import ImageFolder
 from timm.data import Mixup
 from timm.utils import ModelEmaV2, AverageMeter, accuracy
@@ -105,6 +105,16 @@ def parse_args():
             cfg[key] = val
         i += 1
     return args, cfg
+
+
+def _dataset_labels(dataset):
+    """Per-sample class indices, for BUSIDataset or a ConcatDataset of them."""
+    if isinstance(dataset, ConcatDataset):
+        labels = []
+        for sub in dataset.datasets:
+            labels.extend(label for _, label in sub.samples)
+        return np.array(labels)
+    return np.array([label for _, label in dataset.samples])
 
 
 def build_model(cfg):
@@ -298,6 +308,7 @@ def main():
         scale=cfg.get('scale', [0.08, 1.0]),
         ratio=cfg.get('ratio', [0.75, 1.3333]),
         hflip=cfg.get('hflip', 0.5),
+        vflip=cfg.get('vflip', 0.0),
         color_jitter=cfg.get('color_jitter', 0.2),
     )
     val_tf = build_val_transform(img_size=img_size)
@@ -317,7 +328,6 @@ def main():
                 train_datasets.append(BUSIDataset(train_dir, transform=train_tf))
             if os.path.exists(val_dir):
                 val_datasets.append(BUSIDataset(val_dir, transform=val_tf))
-        from torch.utils.data import ConcatDataset
         if len(train_datasets) == 0 or len(val_datasets) == 0:
             raise RuntimeError('No train/validation data found in any data_dirs')
         dataset_train = ConcatDataset(train_datasets)
@@ -329,7 +339,21 @@ def main():
         dataset_val   = BUSIDataset(val_dir,   transform=val_tf)
 
     bs = cfg.get('batch_size', 32)
-    loader_train = DataLoader(dataset_train, batch_size=bs, shuffle=True,
+    train_sampler = None
+    train_shuffle = True
+    if cfg.get('use_balanced_sampler', False):
+        train_labels = _dataset_labels(dataset_train)
+        class_counts = np.bincount(train_labels)
+        sample_weights = 1.0 / class_counts[train_labels]
+        train_sampler = WeightedRandomSampler(
+            weights=torch.as_tensor(sample_weights, dtype=torch.double),
+            num_samples=len(sample_weights),
+            replacement=True,
+        )
+        train_shuffle = False  # sampler and shuffle are mutually exclusive in DataLoader
+        _logger.info(f"Using WeightedRandomSampler — class counts: {class_counts.tolist()}")
+    loader_train = DataLoader(dataset_train, batch_size=bs, shuffle=train_shuffle,
+                              sampler=train_sampler,
                               num_workers=cfg.get('workers', 8),
                               pin_memory=cfg.get('pin_mem', True), drop_last=True)
     loader_val   = DataLoader(dataset_val,
