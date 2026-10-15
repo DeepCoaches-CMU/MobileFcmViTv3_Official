@@ -614,7 +614,10 @@ def main():
 
     if args.infer_only:
         from glob import glob
-        image_paths = sorted(glob("/home/alexandra/Documents/MambaVision/brease_demo/val/*/*.png"))  # load 3 images
+        # Set INFER_DEMO_DIR to a directory of class-subfoldered images to run
+        # ad hoc inference on, e.g. a BUSI validation split.
+        demo_dir = os.environ.get("INFER_DEMO_DIR", "datasets/BUSI_split/validation")
+        image_paths = sorted(glob(f"{demo_dir}/*/*.png"))
         print(args.model)
         all_preds, all_confs = run_inference(model, image_paths, args)
 
@@ -1113,7 +1116,7 @@ def run_inference(model, image_paths, args, batch_size=3, input_size=(224, 224),
                     preds=preds,
                     model=model,
                     image_paths=image_paths[i:i + batch_size],
-                    save_dir="/home/alexandra/Documents/MambaVision/brease_demo/cam_outputs/"
+                    save_dir=os.environ.get("CAM_OUTPUT_DIR", "test_results/cam_outputs/")
                 )
 
             for j, path in enumerate(image_paths[i:i + batch_size]):
@@ -1130,16 +1133,16 @@ if __name__ == '__main__':
     main()
 
 
-#  python3 val_simple.py -c /home/alexandra/Documents/MambaVision/best-model-article-1/args.yaml --loadcheckpoint /home/alexandra/Documents/MambaVision/best-model-article-1/model_best.pth.tar --validate_only
+#  python3 val_simple.py -c $MAMBAVISION_ROOT/best-model-article-1/args.yaml --loadcheckpoint $MAMBAVISION_ROOT/best-model-article-1/model_best.pth.tar --validate_only
 
 
-# find /home/alexandra/Documents/Datasets/BUSI_split/train/benign -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
-# find /home/alexandra/Documents/Datasets/BUSI_split/train/malignant -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
-# find /home/alexandra/Documents/Datasets/BUSI_split/train/normal -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
+# find datasets/BUSI_split/train/benign -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
+# find datasets/BUSI_split/train/malignant -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
+# find datasets/BUSI_split/train/normal -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
 
-# find /home/alexandra/Documents/Datasets/BUSI_split/val/benign -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
-# find /home/alexandra/Documents/Datasets/BUSI_split/val/malignant -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
-# find /home/alexandra/Documents/Datasets/BUSI_split/val/normal -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
+# find datasets/BUSI_split/validation/benign -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
+# find datasets/BUSI_split/validation/malignant -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
+# find datasets/BUSI_split/validation/normal -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) | wc -l
 
 
-# python3 val_simple.py -c /home/alexandra/Documents/MambaVision/mambavision/output_busi/mamba_vision_T2_BUSI/args.yaml --loadcheckpoint /home/alexandra/Documents/MambaVision/mambavision/output_busi/mamba_vision_T2_BUSI/checkpoint-87.pth.tar --validate_only
+# python3 val_simple.py -c $MAMBAVISION_ROOT/output_busi/mamba_vision_T2_BUSI/args.yaml --loadcheckpoint $MAMBAVISION_ROOT/output_busi/mamba_vision_T2_BUSI/checkpoint-87.pth.tar --validate_only

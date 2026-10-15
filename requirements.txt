@@ -1,6 +1,19 @@
 # ── Core deep learning ────────────────────────────────────────────────────────
-torch>=2.0.0
-torchvision>=0.15.0
+# Pinned to the cu129 build, not the PyPI-default cu130 build: the cluster is
+# a heterogeneous mix of GPU generations.
+#   - Older nodes: driver caps out at CUDA 12.9 — a cu130 build fails
+#     `torch.cuda.is_available()` at runtime ("driver too old").
+#   - Newer nodes (NVIDIA Blackwell, e.g. RTX PRO 6000, compute capability
+#     sm_120): need CUDA >=12.8 toolkit kernels — a cu126 build (which
+#     satisfies the older nodes) has no compiled kernels for sm_120 at all
+#     ("no kernel image is available for execution on the device").
+# cu129 (CUDA 12.9) is the sweet spot: exactly at the older nodes' driver
+# ceiling (forward-compatible), and its arch list includes sm_120 for the
+# newer nodes (verify with `torch.cuda.get_arch_list()` after any reinstall).
+# The --extra-index-url line is required for pip to find these build tags.
+--extra-index-url https://download.pytorch.org/whl/cu129
+torch==2.13.0+cu129
+torchvision==0.28.0+cu129
 
 # ── timm (used by both mambavision and mobilefcmvitv3) ───────────────────────
 timm==1.0.15

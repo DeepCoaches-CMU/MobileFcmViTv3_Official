@@ -16,6 +16,7 @@ Usage:
 """
 
 import argparse
+import os
 import csv
 import logging
 import sys
@@ -48,8 +49,11 @@ def parse_args():
     p.add_argument('--checkpoint', type=str, required=True)
     p.add_argument('--data_dir', type=str, default='datasets/BUSI_split')
     p.add_argument('--split', type=str, default='validation',
-                   choices=['train', 'validation'])
+                   choices=['train', 'validation', 'test'])
     p.add_argument('--output_dir', type=str, default='results/mobilefcmvitv3_s_BUSI')
+    p.add_argument('--no_ema', action='store_true', default=False,
+                   help='Use live model weights instead of EMA weights '
+                        '(default: prefer EMA weights when present, matching validate.py)')
     return p.parse_args()
 
 
@@ -61,11 +65,18 @@ def run_inference(model, loader, class_names, amp_autocast):
     total_loss, total_correct, total_n = 0.0, 0, 0
     all_preds, all_targets, all_probs = [], [], []
 
+    import torchvision.transforms.functional as TF
+    import matplotlib.pyplot as plt
+    from PIL import ImageDraw, ImageFont
+    import os
+
     sample_idx = 0
-    for inputs, targets in loader:
+    vis_dir = os.path.join('test_results', 'predicted_images')
+    os.makedirs(vis_dir, exist_ok=True)
+    for batch_idx, (inputs, targets) in enumerate(loader):
         inputs, targets = inputs.cuda(), targets.cuda()
         with amp_autocast():
-            outputs, _, _ = model(inputs)   # unpack (logits, c_loss, e_loss)
+            outputs, _, _ = model(inputs)
         loss = loss_fn(outputs, targets)
         probs = torch.softmax(outputs.float(), 1)
         preds = probs.argmax(1)
@@ -88,6 +99,25 @@ def run_inference(model, loader, class_names, amp_autocast):
             for c, cn in enumerate(class_names or [str(j) for j in range(probs.shape[1])]):
                 row[f'prob_{cn}'] = round(probs[i, c].item(), 6)
             rows.append(row)
+
+            # Visualization: overlay predicted label on image
+            # Convert tensor to PIL image (unnormalize if needed)
+            img_tensor = inputs[i].detach().cpu()
+            # Assume normalization is mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]
+            mean = torch.tensor([0.485, 0.456, 0.406]).view(3,1,1)
+            std = torch.tensor([0.229, 0.224, 0.225]).view(3,1,1)
+            img_tensor = img_tensor * std + mean
+            img_tensor = torch.clamp(img_tensor, 0, 1)
+            pil_img = TF.to_pil_image(img_tensor)
+            draw = ImageDraw.Draw(pil_img)
+            label_text = f"Pred: {pred_name}"
+            try:
+                font = ImageFont.truetype("DejaVuSans-Bold.ttf", 18)
+            except Exception:
+                font = None
+            draw.rectangle([0, 0, pil_img.width, 30], fill=(0,0,0,128))
+            draw.text((5, 5), label_text, fill=(255,255,0), font=font)
+            pil_img.save(os.path.join(vis_dir, f"sample_{sample_idx}_pred_{pred_name}_gt_{gt_name}.png"))
             sample_idx += 1
 
         all_preds.append(preds.cpu())
@@ -115,7 +145,12 @@ def main():
         with open(args.config) as f:
             cfg = yaml.safe_load(f)
 
-    out_dir = Path(args.output_dir)
+    # Always use test_results as the output directory unless explicitly overridden
+    default_test_dir = Path('test_results')
+    if args.output_dir == 'results/mobilefcmvitv3_s_BUSI':
+        out_dir = default_test_dir
+    else:
+        out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Model
@@ -135,9 +170,14 @@ def main():
         ffn_dropout=cfg.get('ffn_dropout', 0.0),
     ).cuda()
 
-    # Load checkpoint — prefer EMA weights
+    # Load checkpoint — prefer EMA weights by default (matches validate.py), unless --no_ema
     ckpt = torch.load(args.checkpoint, map_location='cpu', weights_only=False)
-    state = ckpt.get('ema_state_dict') or ckpt.get('state_dict', ckpt)
+    if not args.no_ema and ckpt.get('ema_state_dict') is not None:
+        state = ckpt['ema_state_dict']
+        _logger.info("Using EMA weights")
+    else:
+        state = ckpt.get('state_dict', ckpt)
+        _logger.info("Using live model weights")
     state = {k.replace('module.', ''): v for k, v in state.items()}
     model.load_state_dict(state, strict=False)
     _logger.info(f"Loaded: {args.checkpoint}")
@@ -147,11 +187,28 @@ def main():
     _logger.info(f"Params: {params_M}M | FLOPs: {flops_G}G | Inference: {inf_ms}ms")
 
     # Data
-    val_tf  = build_val_transform(img_size=224)
-    split_dir = str(Path(args.data_dir) / args.split)
-    from mobilefcmvitv3.utils.dataset import BUSIDataset
-    dataset = BUSIDataset(split_dir, transform=val_tf)
 
+    val_tf  = build_val_transform(img_size=224)
+    data_dirs = cfg.get('data_dirs', None)
+    from mobilefcmvitv3.utils.dataset import BUSIDataset
+    if data_dirs is not None:
+        if not isinstance(data_dirs, list):
+            raise ValueError('data_dirs in config must be a list of dataset root directories')
+        datasets = []
+        for d in data_dirs:
+            split_dir = str(Path(d) / args.split)
+            if os.path.exists(split_dir):
+                datasets.append(BUSIDataset(split_dir, transform=val_tf))
+        from torch.utils.data import ConcatDataset
+        if len(datasets) == 0:
+            raise RuntimeError('No data found in any data_dirs for split: ' + args.split)
+        dataset = ConcatDataset(datasets)
+        # Use class names from the first dataset if available
+        class_names = getattr(datasets[0], 'classes', None) if datasets else None
+    else:
+        split_dir = str(Path(args.data_dir) / args.split)
+        dataset = BUSIDataset(split_dir, transform=val_tf)
+        class_names = getattr(dataset, 'classes', None)
     loader = DataLoader(
         dataset,
         batch_size=cfg.get('validation_batch_size', 16),
@@ -159,7 +216,6 @@ def main():
         num_workers=cfg.get('workers', 8),
         pin_memory=True,
     )
-    class_names = getattr(dataset, 'classes', None)
     _logger.info(f"Testing on {args.split}: {len(dataset)} samples | classes: {class_names}")
 
     amp_autocast = partial(torch.amp.autocast, 'cuda') if cfg.get('amp', True) else suppress

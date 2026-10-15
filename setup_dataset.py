@@ -24,7 +24,10 @@ import yaml
 # ── Config ────────────────────────────────────────────────────────────────────
 REPO_ROOT = Path(__file__).parent
 PATHS_YAML = REPO_ROOT / "paths.yaml"
-SPLIT_JSON = REPO_ROOT / "data" / "BUSI_split.json"
+# data/BUSI_split.json (train/val only) is kept as-is for provenance of the
+# original results. data/BUSI_split_v2.json (train/val/test, deduped — see
+# scripts/build_busi_split.py) is the manifest used going forward.
+SPLIT_JSON = REPO_ROOT / "data" / "BUSI_split_v2.json"
 
 # Kaggle dataset slug (Dataset for Breast Ultrasound Images)
 KAGGLE_DATASET = "aryashah2k/breast-ultrasound-images-dataset"
@@ -84,7 +87,7 @@ def download_busi(raw_dir: Path):
 
 def organize_split(raw_dir: Path, split_dir: Path, split_json: Path):
     """
-    Copy images from raw_dir into split_dir/{train,validation}/{class}/
+    Copy images from raw_dir into split_dir/{train,validation,test}/{class}/
     according to the split JSON.
 
     The split JSON uses 'val' as the key; timm's create_dataset expects
@@ -107,9 +110,18 @@ def organize_split(raw_dir: Path, split_dir: Path, split_json: Path):
                 f"Expected {src_root} but found: {candidates}"
             )
 
-    split_key_map = {"train": "train", "val": "validation"}
+    split_key_map = {"train": "train", "val": "validation", "test": "test"}
     total_copied = 0
-    total_skipped = 0
+
+    # Each folder_name dir is wiped and rebuilt from scratch on every run, so
+    # it always matches split_json exactly — if the manifest changes (e.g. a
+    # new split_json), stale files from a previous manifest never linger
+    # alongside the new assignment (which would silently reintroduce
+    # train/val/test leakage).
+    for folder_name in split_key_map.values():
+        folder = split_dir / folder_name
+        if folder.exists():
+            shutil.rmtree(folder)
 
     for json_split, folder_name in split_key_map.items():
         for cls in CLASSES:
@@ -119,19 +131,15 @@ def organize_split(raw_dir: Path, split_dir: Path, split_json: Path):
             filenames = split.get(json_split, {}).get(cls, [])
             for fname in filenames:
                 src = src_root / cls / fname
-                dst_file = dst / fname
-                if dst_file.exists():
-                    total_skipped += 1
-                    continue
                 if not src.exists():
                     # BUSI images sometimes have mask siblings; skip masks
                     print(f"  ⚠️  Missing: {src}")
                     continue
-                shutil.copy2(src, dst_file)
+                shutil.copy2(src, dst / fname)
                 total_copied += 1
 
     print(f"✅ Organized split → {split_dir}")
-    print(f"   Copied: {total_copied}  |  Already present: {total_skipped}")
+    print(f"   Copied: {total_copied}")
 
 
 def verify_split(split_dir: Path, split_json: Path):
@@ -139,7 +147,7 @@ def verify_split(split_dir: Path, split_json: Path):
     with open(split_json) as f:
         split = json.load(f)
 
-    split_key_map = {"train": "train", "val": "validation"}
+    split_key_map = {"train": "train", "val": "validation", "test": "test"}
     all_ok = True
     for json_split, folder_name in split_key_map.items():
         for cls in CLASSES:

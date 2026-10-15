@@ -278,3 +278,79 @@ class MobileViTv3Block(nn.Module):
         # MobileViTv3 fusion: concat(local, global)
         out = self.fusion(torch.cat([local_feat, global_feat], dim=1))
         return out + res                             # residual skip
+
+
+# ── Shared MobileViTv3-S backbone config/builder ──────────────────────────────
+# Matches cvnets config/mobilevit.py mode='small' exactly. Shared between
+# MobileFCMViTv3 (fusion model) and MobileViTv3OnlyNet (backbone-only ablation)
+# so both use identical backbone module names/shapes and stay pretrained-weight
+# compatible with the same checkpoints.
+MOBILEVITV3_S_CONFIG = {
+    'layer_1': {'out': 32,  'blocks': 1, 'stride': 1, 'expand': 4},
+    'layer_2': {'out': 64,  'blocks': 3, 'stride': 2, 'expand': 4},
+    'layer_3': {'out': 96,  'blocks': 1, 'stride': 2, 'expand': 4,
+                'tr_dim': 144, 'ffn_dim': 288, 'tr_blocks': 2, 'head_dim': 16,
+                'patch_h': 2, 'patch_w': 2},
+    'layer_4': {'out': 128, 'blocks': 1, 'stride': 2, 'expand': 4,
+                'tr_dim': 192, 'ffn_dim': 384, 'tr_blocks': 4, 'head_dim': 32,
+                'patch_h': 2, 'patch_w': 2},
+    'layer_5': {'out': 160, 'blocks': 1, 'stride': 2, 'expand': 4,
+                'tr_dim': 240, 'ffn_dim': 480, 'tr_blocks': 3, 'head_dim': 16,
+                'patch_h': 2, 'patch_w': 2},
+    'exp_factor': 4,   # 160 * 4 = 640
+}
+
+
+def _make_mv2_stage(in_ch: int, cfg: dict) -> nn.Sequential:
+    layers, out_ch = [], cfg['out']
+    for i in range(cfg['blocks']):
+        stride = cfg['stride'] if i == 0 else 1
+        layers.append(InvertedResidual(in_ch, out_ch, stride=stride,
+                                       expand_ratio=cfg['expand']))
+        in_ch = out_ch
+    return nn.Sequential(*layers)
+
+
+def _make_mit_stage(in_ch: int, cfg: dict,
+                    dropout, attn_dropout, ffn_dropout) -> nn.Sequential:
+    out_ch = cfg['out']
+    return nn.Sequential(
+        InvertedResidual(in_ch, out_ch, stride=cfg['stride'],
+                         expand_ratio=cfg['expand']),
+        MobileViTv3Block(
+            in_channels=out_ch,
+            transformer_dim=cfg['tr_dim'],
+            ffn_dim=cfg['ffn_dim'],
+            n_transformer_blocks=cfg['tr_blocks'],
+            head_dim=cfg['head_dim'],
+            patch_h=cfg['patch_h'],
+            patch_w=cfg['patch_w'],
+            attn_dropout=attn_dropout,
+            dropout=dropout,
+            ffn_dropout=ffn_dropout,
+        ),
+    )
+
+
+def build_mobilevitv3_s_backbone(in_chans=3, dropout=0.1, attn_dropout=0.0,
+                                 ffn_dropout=0.0, cfg=None):
+    """
+    Build the MobileViTv3-S backbone (conv_1, layer_1..5, conv_1x1_exp) with
+    module names matching the official cvnets checkpoint, so pretrained
+    weights load directly via the same key-stripping logic as
+    MobileFCMViTv3.load_pretrained().
+
+    Returns: (backbone: nn.ModuleDict, exp_ch: int)
+    """
+    cfg = cfg or MOBILEVITV3_S_CONFIG
+    backbone = nn.ModuleDict({
+        'conv_1':   ConvLayer(in_chans, 16, kernel_size=3, stride=2, padding=1),
+        'layer_1':  _make_mv2_stage(16, cfg['layer_1']),
+        'layer_2':  _make_mv2_stage(32, cfg['layer_2']),
+        'layer_3':  _make_mit_stage(64,  cfg['layer_3'], dropout, attn_dropout, ffn_dropout),
+        'layer_4':  _make_mit_stage(96,  cfg['layer_4'], dropout, attn_dropout, ffn_dropout),
+        'layer_5':  _make_mit_stage(128, cfg['layer_5'], dropout, attn_dropout, ffn_dropout),
+    })
+    exp_ch = min(cfg['exp_factor'] * 160, 960)   # 640
+    backbone['conv_1x1_exp'] = ConvLayer(160, exp_ch, kernel_size=1, padding=0)
+    return backbone, exp_ch

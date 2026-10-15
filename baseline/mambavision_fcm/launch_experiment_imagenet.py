@@ -1,4 +1,12 @@
+import os
 import subprocess
+
+# Root of the external MambaVision repo this baseline drives (not part of this
+# repo). Set MAMBAVISION_ROOT in your environment, e.g.:
+#   export MAMBAVISION_ROOT=/path/to/MambaVision/mambavision
+MAMBAVISION_ROOT = os.environ.get("MAMBAVISION_ROOT")
+if not MAMBAVISION_ROOT:
+    raise SystemExit("Set MAMBAVISION_ROOT to the external MambaVision repo root before running this script.")
 
 model_list = [
     # "mambavision_fcm_net"
@@ -23,11 +31,11 @@ for model in model_list:
         experiment_name = f"{model}"
 
         cmd = ["python3", "train.py",
-            "-c", "/home/alexandra/Documents/MambaVision/mambavision/configs/imagenet/mambavision_tiny2_1k.yaml",
+            "-c", f"{MAMBAVISION_ROOT}/configs/imagenet/mambavision_tiny2_1k.yaml",
             f"--group={model}",
             f"--model={model}",
             f"--experiment=imagenet_{experiment_name}",
-            f"--resume=/home/alexandra/Documents/MambaVision/mambavision/output_imagenet/imagenet_mamba_vision_T3_pyramid_fusion/checkpoint-190.pth.tar",
+            f"--resume={MAMBAVISION_ROOT}/output_imagenet/imagenet_mamba_vision_T3_pyramid_fusion/checkpoint-190.pth.tar",
             f"--log-wandb"
         ]
 
