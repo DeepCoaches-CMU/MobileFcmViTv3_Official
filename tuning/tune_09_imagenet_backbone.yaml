@@ -1,0 +1,97 @@
+# tuning/tune_09_imagenet_backbone.yaml
+#
+# Tuning run 09 — ImageNet-classification pretrained backbone instead of
+# VOC-segmentation pretrained backbone
+#
+# Motivation:
+#   Every prior run (tune_01 through tune_08) warm-starts from
+#   mobilevitv3_S_voc_e50_7959 — a VOC SEGMENTATION checkpoint (only 50
+#   epochs, dense per-pixel objective). For a classification task, an
+#   ImageNet-classification-pretrained backbone (mobilevitv3_S_e300_7930,
+#   300 epochs, ~79.3% ImageNet top-1, global image-level objective) should
+#   be a better transfer source. MobileFCMViTv3.load_pretrained() already
+#   supports classification-checkpoint key formats (see its docstring) —
+#   no code change needed, just a different checkpoint path.
+#
+# Changes from tune_05_augmix.yaml:
+#   pretrained_weights: mobilevitv3_S_voc_e50_7959 (segmentation)
+#     → mobilevitv3_S_e300_7930 (ImageNet classification)
+#   checkpoint_dir / results_dir → tuning/tune_09_imagenet_backbone/
+#   Otherwise identical to tune_05_augmix.yaml for a clean one-variable comparison.
+
+model: mobilefcmvitv3_s
+data_dirs:
+  - datasets/BUSI_split
+num_classes: 3
+
+pretrained_weights: baseline/Models/MobileViTv3-v1/results_classification/mobilevitv3_S_e300_7930/checkpoint_ema_best.pt
+
+# ── Feature-space differentiable soft clustering ──────────────────────────────
+fcm_k: 3
+fcm_proj_dim: 32
+tau: 1.0
+fcm_m: 2.0
+membership: softmax
+normalize_feat: true
+fusion_type: attention
+lambda_clust: 0.01
+lambda_entropy: 0.0
+
+# Architecture
+dropout: 0.1
+attn_dropout: 0.0
+ffn_dropout: 0.0
+drop_path_rate: 0.1
+
+# Training
+batch_size: 32
+validation_batch_size: 16
+epochs: 300
+lr: 1.0e-4
+warmup_lr: 1.0e-7
+min_lr: 1.0e-7
+warmup_epochs: 5
+weight_decay: 0.01
+opt: adamw
+opt_eps: 1.0e-8
+opt_betas: [0.9, 0.999]
+clip_grad: 5.0
+clip_mode: norm
+
+# Scheduler
+sched: cosine
+cooldown_epochs: 10
+
+# Augmentation
+color_jitter: 0.6
+hflip: 0.5
+vflip: 0.3
+scale: [0.05, 1.2]
+ratio: [0.7, 1.4]
+mixup: 0.4
+cutmix: 0.4
+mixup_prob: 0.5
+mixup_switch_prob: 0.5
+smoothing: 0.1
+
+# Class imbalance
+use_class_weights: true
+class_weights: [0.510, 1.020, 1.275]  # [benign, malignant, normal]
+
+# Regularization
+drop_rate: 0.1
+
+# AMP
+amp: true
+
+# Misc
+workers: 8
+pin_mem: true
+log_wandb: true
+model_ema: true
+model_ema_decay: 0.9998
+patience_epochs: 80
+seed: 42
+eval_metric: top1
+checkpoint_dir: tuning/tune_09_imagenet_backbone/checkpoints
+results_dir: tuning/tune_09_imagenet_backbone/results

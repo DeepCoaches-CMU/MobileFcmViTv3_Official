@@ -1,0 +1,89 @@
+{
+  "n_seeds": 5,
+  "sources": [
+    "tuning/tune_08_kfold0/results/best_metrics.json",
+    "tuning/tune_08_kfold1/results/best_metrics.json",
+    "tuning/tune_08_kfold2/results/best_metrics.json",
+    "tuning/tune_08_kfold3/results/best_metrics.json",
+    "tuning/tune_08_kfold4/results/best_metrics.json"
+  ],
+  "metrics": {
+    "val_top1": {
+      "mean": 84.672,
+      "std": 3.9968,
+      "values": [
+        88.7218,
+        81.203,
+        82.4427,
+        81.6794,
+        89.313
+      ]
+    },
+    "accuracy": {
+      "mean": 84.672,
+      "std": 3.9968,
+      "values": [
+        88.7218,
+        81.203,
+        82.4427,
+        81.6794,
+        89.313
+      ]
+    },
+    "precision_macro": {
+      "mean": 0.8252,
+      "std": 0.0463,
+      "values": [
+        0.8744,
+        0.7841,
+        0.8092,
+        0.7836,
+        0.8748
+      ]
+    },
+    "recall_macro": {
+      "mean": 0.8461,
+      "std": 0.0432,
+      "values": [
+        0.8882,
+        0.8089,
+        0.8036,
+        0.8349,
+        0.895
+      ]
+    },
+    "f1_macro": {
+      "mean": 0.8329,
+      "std": 0.0444,
+      "values": [
+        0.8803,
+        0.7948,
+        0.8043,
+        0.8025,
+        0.8825
+      ]
+    },
+    "roc_auc_macro": {
+      "mean": 0.9359,
+      "std": 0.0305,
+      "values": [
+        0.9653,
+        0.9255,
+        0.8922,
+        0.9321,
+        0.9644
+      ]
+    },
+    "pr_auc_macro": {
+      "mean": 0.8886,
+      "std": 0.0528,
+      "values": [
+        0.9408,
+        0.8753,
+        0.8079,
+        0.8887,
+        0.9302
+      ]
+    }
+  }
+}

@@ -1,0 +1,108 @@
+# tuning/tune_11_cost_sensitive.yaml
+#
+# Tuning run 11 — cost-sensitive loss targeting malignant-downgrade errors
+#
+# Motivation (from deep error analysis on tune_05_augmix's held-out test
+# predictions): the model's most clinically important error is malignant
+# cases being downgraded to benign (2/32 test errors) or, worse, to normal
+# (3/32 — a cancer flagged as "no lesion at all", no follow-up whatsoever).
+# Existing class-weighted CE (use_class_weights) only reweights by the TRUE
+# class's frequency — it doesn't specifically discourage this "downgrade"
+# direction over any other confusion. mobilefcmvitv3/utils/class_imbalance.py
+# now has CostSensitiveCrossEntropy, which multiplies each sample's CE by
+# BUSI_COST_MATRIX[true, predicted] — 3x for malignant->normal, 2x for
+# malignant->benign or benign->normal, 1x (no change) for every false alarm
+# (predicting a more-urgent class than the truth), so this doesn't just trade
+# the malignant-miss problem for more false alarms in the other direction.
+#
+# Changes from tune_10_grayscale_aug_fix.yaml:
+#   mixup: 0.4 -> 0.0, cutmix: 0.4 -> 0.0, mixup_prob: 0.5 -> 0.0
+#     (REQUIRED, not optional: build_loss_fn's mixup branch takes priority
+#     over cost_sensitive_beta, same precedence FocalLoss already has to
+#     work around — mixup produces soft/mixed targets with no single argmax
+#     to look a cost up for. Leaving mixup on here would silently make
+#     cost_sensitive_beta a no-op, exactly the class of bug tune_10 fixed.)
+#   cost_sensitive_beta: 0.0 -> 1.0 (enables BUSI_COST_MATRIX as defined)
+#   checkpoint_dir / results_dir -> tuning/tune_11_cost_sensitive/
+# Otherwise identical to tune_10_grayscale_aug_fix.yaml (same warm start,
+# same fixed augmentation pipeline) for a clean one-variable comparison.
+
+model: mobilefcmvitv3_s
+data_dirs:
+  - datasets/BUSI_split
+num_classes: 3
+
+pretrained_weights: tuning/tune_01_lr_aug/checkpoints/model_best.pth.tar
+
+# ── Feature-space differentiable soft clustering ──────────────────────────────
+fcm_k: 3
+fcm_proj_dim: 32
+tau: 1.0
+fcm_m: 2.0
+membership: softmax
+normalize_feat: true
+fusion_type: attention
+lambda_clust: 0.01
+lambda_entropy: 0.0
+
+# Architecture
+dropout: 0.1
+attn_dropout: 0.0
+ffn_dropout: 0.0
+drop_path_rate: 0.1
+
+# Training
+batch_size: 32
+validation_batch_size: 16
+epochs: 300
+lr: 1.0e-4
+warmup_lr: 1.0e-7
+min_lr: 1.0e-7
+warmup_epochs: 5
+weight_decay: 0.01
+opt: adamw
+opt_eps: 1.0e-8
+opt_betas: [0.9, 0.999]
+clip_grad: 5.0
+clip_mode: norm
+
+# Scheduler
+sched: cosine
+cooldown_epochs: 10
+
+# Augmentation — same as tune_10, mixup/cutmix disabled (see header: required for cost_sensitive_beta to engage)
+color_jitter: 0.6
+hflip: 0.5
+vflip: 0.3
+scale: [0.05, 1.2]
+ratio: [0.7, 1.4]
+mixup: 0.0
+cutmix: 0.0
+mixup_prob: 0.0
+mixup_switch_prob: 0.5
+smoothing: 0.1
+
+# Class imbalance
+use_class_weights: true
+class_weights: [0.510, 1.020, 1.275]  # [benign, malignant, normal]
+
+# Cost-sensitive loss — see header for BUSI_COST_MATRIX rationale
+cost_sensitive_beta: 1.0
+
+# Regularization
+drop_rate: 0.1
+
+# AMP
+amp: true
+
+# Misc
+workers: 8
+pin_mem: true
+log_wandb: true
+model_ema: true
+model_ema_decay: 0.9998
+patience_epochs: 80
+seed: 42
+eval_metric: top1
+checkpoint_dir: tuning/tune_11_cost_sensitive/checkpoints
+results_dir: tuning/tune_11_cost_sensitive/results

@@ -95,3 +95,6 @@ datasets2/
 evaluation_results/
 test_results/
 ablation_results/
+
+.claude/
+*.tex

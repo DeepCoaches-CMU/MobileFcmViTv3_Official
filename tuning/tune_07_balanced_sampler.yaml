@@ -1,0 +1,96 @@
+# tuning/tune_07_balanced_sampler.yaml
+#
+# Tuning run 07 — Balanced class sampler (targets the weak 'normal' class)
+#
+# Motivation:
+#   Per-class validation metrics on tune_05_augmix show 'normal' (133/778
+#   images, smallest class) is the weakest: 78.9% recall vs. 90-92% for the
+#   other two classes. tune_05_augmix only addresses imbalance via loss
+#   weighting (class_weights below); this config instead uses a
+#   WeightedRandomSampler so the training loop sees 'normal' proportionally
+#   as often as the majority class, directly targeting recall on that class
+#   rather than just reweighting its loss contribution.
+#
+# Changes from tune_05_augmix.yaml:
+#   use_balanced_sampler: false → true
+#   use_class_weights: true → false (avoid stacking two imbalance-correction
+#     mechanisms — the sampler already balances class exposure per epoch;
+#     also applying loss weights on top would double-correct)
+#   checkpoint_dir / results_dir → tuning/tune_07_balanced_sampler/
+
+model: mobilefcmvitv3_s
+data_dirs:
+  - datasets/BUSI_split
+num_classes: 3
+
+pretrained_weights: tuning/tune_01_lr_aug/checkpoints/model_best.pth.tar
+
+# ── Feature-space differentiable soft clustering ──────────────────────────────
+fcm_k: 3
+fcm_proj_dim: 32
+tau: 1.0
+fcm_m: 2.0
+membership: softmax
+normalize_feat: true
+fusion_type: attention
+lambda_clust: 0.01
+lambda_entropy: 0.0
+
+# Architecture
+dropout: 0.1
+attn_dropout: 0.0
+ffn_dropout: 0.0
+drop_path_rate: 0.1
+
+# Training
+batch_size: 32
+validation_batch_size: 16
+epochs: 300
+lr: 1.0e-4
+warmup_lr: 1.0e-7
+min_lr: 1.0e-7
+warmup_epochs: 5
+weight_decay: 0.01
+opt: adamw
+opt_eps: 1.0e-8
+opt_betas: [0.9, 0.999]
+clip_grad: 5.0
+clip_mode: norm
+
+# Scheduler
+sched: cosine
+cooldown_epochs: 10
+
+# Augmentation
+color_jitter: 0.6
+hflip: 0.5
+vflip: 0.3
+scale: [0.05, 1.2]
+ratio: [0.7, 1.4]
+mixup: 0.4
+cutmix: 0.4
+mixup_prob: 0.5
+mixup_switch_prob: 0.5
+smoothing: 0.1
+
+# Class imbalance — via sampler this time, not loss weighting (see header)
+use_balanced_sampler: true
+use_class_weights: false
+
+# Regularization
+drop_rate: 0.1
+
+# AMP
+amp: true
+
+# Misc
+workers: 8
+pin_mem: true
+log_wandb: true
+model_ema: true
+model_ema_decay: 0.9998
+patience_epochs: 80
+seed: 42
+eval_metric: top1
+checkpoint_dir: tuning/tune_07_balanced_sampler/checkpoints
+results_dir: tuning/tune_07_balanced_sampler/results

@@ -1,0 +1,94 @@
+# tuning/tune_08_kfold_base.yaml
+#
+# K-fold cross-validation base config — identical to tune_05_augmix.yaml
+# except `data_dirs` is omitted (so `--data_dir` CLI overrides actually take
+# effect; when `data_dirs` is set, train.py ignores args.data_dir entirely).
+# checkpoint_dir/results_dir are also omitted here since they're passed per
+# fold via CLI override at submission time.
+#
+# Motivation: the single train/validation split has only 19 'normal'-class
+# images in validation — each misclassification swings that class's recall
+# by ~5 points. 5-fold CV over the combined train+validation pool (659
+# images, ~22-23 'normal' images per fold) gives a materially less noisy
+# estimate. The held-out test split is never used here — folds are built
+# only from train+validation (see scripts/build_kfold_splits.py).
+#
+# IMPORTANT: pretrained_weights must NOT be tune_01's (or any) BUSI-finetuned
+# checkpoint. tune_01 was trained on the full original 544-image train split,
+# which overlaps heavily with every fold's "held-out" validation portion (the
+# folds are built from train+validation combined) — warm-starting from it
+# leaks fold "validation" images into prior training history and inflates
+# fold accuracy (confirmed: an initial run with tune_01's checkpoint showed
+# 95-96% val_top1 on fold 0, far above every other result in this project;
+# investigating the discrepancy surfaced the leak before it was reported).
+# Use the common untrained-on-BUSI VOC checkpoint instead, same as
+# ablation_base.yaml, so no fold has any leakage from prior BUSI exposure.
+pretrained_weights: baseline/Models/MobileViTv3-v1/results_segmentation/mobilevitv3_S_voc_e50_7959/checkpoint_ema_best.pt
+
+# ── Feature-space differentiable soft clustering ──────────────────────────────
+fcm_k: 3
+fcm_proj_dim: 32
+tau: 1.0
+fcm_m: 2.0
+membership: softmax
+normalize_feat: true
+fusion_type: attention
+lambda_clust: 0.01
+lambda_entropy: 0.0
+
+# Architecture
+dropout: 0.1
+attn_dropout: 0.0
+ffn_dropout: 0.0
+drop_path_rate: 0.1
+
+# Training
+batch_size: 32
+validation_batch_size: 16
+epochs: 300
+lr: 1.0e-4
+warmup_lr: 1.0e-7
+min_lr: 1.0e-7
+warmup_epochs: 5
+weight_decay: 0.01
+opt: adamw
+opt_eps: 1.0e-8
+opt_betas: [0.9, 0.999]
+clip_grad: 5.0
+clip_mode: norm
+
+# Scheduler
+sched: cosine
+cooldown_epochs: 10
+
+# Augmentation
+color_jitter: 0.6
+hflip: 0.5
+vflip: 0.3
+scale: [0.05, 1.2]
+ratio: [0.7, 1.4]
+mixup: 0.4
+cutmix: 0.4
+mixup_prob: 0.5
+mixup_switch_prob: 0.5
+smoothing: 0.1
+
+# Class imbalance
+use_class_weights: true
+class_weights: [0.510, 1.020, 1.275]  # [benign, malignant, normal]
+
+# Regularization
+drop_rate: 0.1
+
+# AMP
+amp: true
+
+# Misc
+workers: 8
+pin_mem: true
+log_wandb: true
+model_ema: true
+model_ema_decay: 0.9998
+patience_epochs: 80
+seed: 42
+eval_metric: top1

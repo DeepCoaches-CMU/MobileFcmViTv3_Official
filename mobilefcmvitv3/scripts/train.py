@@ -384,6 +384,7 @@ def main():
         use_class_weights=cfg.get('use_class_weights', True),
         num_classes=cfg.get('num_classes', 3),
         focal_gamma=cfg.get('focal_gamma', 0.0),
+        cost_sensitive_beta=cfg.get('cost_sensitive_beta', 0.0),
     )
     val_loss_fn = nn.CrossEntropyLoss().cuda()
 
