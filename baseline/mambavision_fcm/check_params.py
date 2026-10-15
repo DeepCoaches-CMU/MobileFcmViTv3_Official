@@ -1,7 +1,8 @@
+import os
 from timm import create_model
 from models.mambavision_fcm_net import *
 from models.mamba_vision_baseline import mamba_vision_T2_baseline
-import torch 
+import torch
 
 def count_params(model):
     total_params = sum(p.numel() for p in model.parameters())
@@ -30,8 +31,12 @@ def check_model_params():
         print(f"{name:<20}: {total:,} | {trainable:,}")
 
 def check_mamba_params():
-    # mamba_baseline_path = '/home/alexandra/Documents/MambaVision/mambavision/ckpts/mambavision_tiny2_1k.pth.tar'
-    mamba_updated_path = '/home/alexandra/Documents/MambaVision/mambavision/output_busi/mamba_vision_T2_BUSI/checkpoint-87.pth.tar'
+    # MAMBAVISION_ROOT = the external MambaVision repo root, e.g.:
+    #   export MAMBAVISION_ROOT=/path/to/MambaVision/mambavision
+    mambavision_root = os.environ.get("MAMBAVISION_ROOT")
+    if not mambavision_root:
+        raise SystemExit("Set MAMBAVISION_ROOT to the external MambaVision repo root before running this.")
+    mamba_updated_path = f'{mambavision_root}/output_busi/mamba_vision_T2_BUSI/checkpoint-87.pth.tar'
     checkpoint = torch.load(mamba_updated_path, weights_only=False)
     # Extract state dict (if wrapped in a dict)
     state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint

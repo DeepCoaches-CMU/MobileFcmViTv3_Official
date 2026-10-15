@@ -1,0 +1,111 @@
+# tuning/tune_10_grayscale_aug_fix.yaml
+#
+# Tuning run 10 — fix two augmentation-pipeline bugs found during error
+# analysis, identical recipe to tune_05_augmix.yaml otherwise.
+#
+# Bug 1: BUSI images are grayscale ultrasound stored as RGB PNGs with
+#   byte-identical R=G=B channels (verified directly on raw pixel data).
+#   ColorJitter's saturation knob is therefore a near-no-op on this dataset —
+#   every tuning config (01 through 09) was spending part of its
+#   color_jitter budget on a transform that does ~nothing, while brightness/
+#   contrast (the augmentation that actually matters for the cross-scanner
+#   intensity shift behind the BUS-UCLM external-eval collapse) got no extra
+#   emphasis. Fixed in mobilefcmvitv3/utils/augmentation.py by dropping
+#   saturation from ColorLitter's transform, kept as brightness+contrast only.
+# Bug 2: `vflip` has been set in every tuning config since tune_01 (0.3), but
+#   mobilefcmvitv3/utils/augmentation.py's build_train_transform() never
+#   accepted a vflip parameter and train.py never passed one — so vertical
+#   flip augmentation was silently never applied in any prior run, despite
+#   every config claiming otherwise. Fixed by wiring cfg['vflip'] through
+#   train.py -> build_train_transform() -> T.RandomVerticalFlip.
+#
+# Both fixes are bundled here (rather than isolated one-variable-at-a-time
+# like tune_09's backbone comparison) because they're the same class of
+# change — making the augmentation pipeline actually do what its own config
+# already claimed — not a new research variable. Any future config's vflip
+# now takes effect automatically; this run exists to check whether "the
+# augmentation config finally does what it says" moves accuracy or the
+# BUS-UCLM external-eval gap at all.
+#
+# Changes from tune_05_augmix.yaml: none (same hyperparameters) — only the
+# augmentation code underneath now does what this recipe always intended.
+# pretrained_weights / warm-start identical to tune_05_augmix for a clean
+# before/after comparison.
+# checkpoint_dir / results_dir → tuning/tune_10_grayscale_aug_fix/
+
+model: mobilefcmvitv3_s
+data_dirs:
+  - datasets/BUSI_split
+num_classes: 3
+
+pretrained_weights: tuning/tune_01_lr_aug/checkpoints/model_best.pth.tar
+
+# ── Feature-space differentiable soft clustering ──────────────────────────────
+fcm_k: 3
+fcm_proj_dim: 32
+tau: 1.0
+fcm_m: 2.0
+membership: softmax
+normalize_feat: true
+fusion_type: attention
+lambda_clust: 0.01
+lambda_entropy: 0.0
+
+# Architecture
+dropout: 0.1
+attn_dropout: 0.0
+ffn_dropout: 0.0
+drop_path_rate: 0.1
+
+# Training
+batch_size: 32
+validation_batch_size: 16
+epochs: 300
+lr: 1.0e-4
+warmup_lr: 1.0e-7
+min_lr: 1.0e-7
+warmup_epochs: 5
+weight_decay: 0.01
+opt: adamw
+opt_eps: 1.0e-8
+opt_betas: [0.9, 0.999]
+clip_grad: 5.0
+clip_mode: norm
+
+# Scheduler
+sched: cosine
+cooldown_epochs: 10
+
+# Augmentation — same values as tune_05_augmix; vflip and (now saturation-free) color_jitter actually apply this time
+color_jitter: 0.6
+hflip: 0.5
+vflip: 0.3
+scale: [0.05, 1.2]
+ratio: [0.7, 1.4]
+mixup: 0.4
+cutmix: 0.4
+mixup_prob: 0.5
+mixup_switch_prob: 0.5
+smoothing: 0.1
+
+# Class imbalance
+use_class_weights: true
+class_weights: [0.510, 1.020, 1.275]  # [benign, malignant, normal]
+
+# Regularization
+drop_rate: 0.1
+
+# AMP
+amp: true
+
+# Misc
+workers: 8
+pin_mem: true
+log_wandb: true
+model_ema: true
+model_ema_decay: 0.9998
+patience_epochs: 80
+seed: 42
+eval_metric: top1
+checkpoint_dir: tuning/tune_10_grayscale_aug_fix/checkpoints
+results_dir: tuning/tune_10_grayscale_aug_fix/results

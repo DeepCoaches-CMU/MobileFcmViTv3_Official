@@ -4,6 +4,9 @@
 # Used to isolate the contribution of feature-space FCM fusion.
 
 model: mobilefcmvitv3_s
+data_dirs:
+  # - datasets/BUSI_split
+  # - datasets2/BUSI_split
 num_classes: 3
 
 pretrained_weights: baseline/Models/MobileViTv3-v1/results_segmentation/mobilevitv3_S_voc_e50_7959/checkpoint_ema_best.pt

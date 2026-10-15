@@ -1,0 +1,73 @@
+{
+  "n_seeds": 3,
+  "sources": [
+    "tuning/tune_05_seed42/results/best_metrics.json",
+    "tuning/tune_05_seed123/results/best_metrics.json",
+    "tuning/tune_05_seed7/results/best_metrics.json"
+  ],
+  "metrics": {
+    "val_top1": {
+      "mean": 89.5652,
+      "std": 0.8696,
+      "values": [
+        88.6957,
+        89.5652,
+        90.4348
+      ]
+    },
+    "accuracy": {
+      "mean": 89.5652,
+      "std": 0.8696,
+      "values": [
+        88.6957,
+        89.5652,
+        90.4348
+      ]
+    },
+    "precision_macro": {
+      "mean": 0.8725,
+      "std": 0.0125,
+      "values": [
+        0.8582,
+        0.8784,
+        0.881
+      ]
+    },
+    "recall_macro": {
+      "mean": 0.8701,
+      "std": 0.018,
+      "values": [
+        0.8668,
+        0.8539,
+        0.8895
+      ]
+    },
+    "f1_macro": {
+      "mean": 0.8707,
+      "std": 0.0124,
+      "values": [
+        0.8621,
+        0.8651,
+        0.8849
+      ]
+    },
+    "roc_auc_macro": {
+      "mean": 0.9258,
+      "std": 0.003,
+      "values": [
+        0.9271,
+        0.9223,
+        0.9279
+      ]
+    },
+    "pr_auc_macro": {
+      "mean": 0.8728,
+      "std": 0.0044,
+      "values": [
+        0.8699,
+        0.8706,
+        0.8779
+      ]
+    }
+  }
+}

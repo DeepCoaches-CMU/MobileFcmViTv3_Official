@@ -13,15 +13,20 @@ def build_train_transform(img_size: int = 224,
                           scale: tuple = (0.08, 1.0),
                           ratio: tuple = (0.75, 1.3333),
                           hflip: float = 0.5,
+                          vflip: float = 0.0,
                           color_jitter: float = 0.2,
                           mean: tuple = (0.485, 0.456, 0.406),
                           std: tuple = (0.229, 0.224, 0.225)) -> T.Compose:
+    # BUSI images are grayscale ultrasound stored as RGB PNGs with identical
+    # R=G=B channels (verified byte-for-byte), so ColorJitter's saturation
+    # knob has ~no effect (saturation jitter is a no-op on channel-equal
+    # pixels) — only brightness/contrast jitter real intensity variation.
     return T.Compose([
         T.RandomResizedCrop(img_size, scale=scale, ratio=ratio,
                             interpolation=T.InterpolationMode.BICUBIC),
         T.RandomHorizontalFlip(p=hflip),
-        T.ColorJitter(brightness=color_jitter, contrast=color_jitter,
-                      saturation=color_jitter),
+        T.RandomVerticalFlip(p=vflip),
+        T.ColorJitter(brightness=color_jitter, contrast=color_jitter),
         T.ToTensor(),
         T.Normalize(mean=mean, std=std),
     ])
