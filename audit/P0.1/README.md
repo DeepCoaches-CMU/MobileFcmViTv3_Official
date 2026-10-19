@@ -60,7 +60,8 @@ To verify:
 - **Every reported result mapped to run ID, config, checkpoint, split manifest, prediction
   file and code commit: not met, and it can't be met from existing evidence.**
   - There are no per-sample prediction files for any paper number.
-  - Code commits are unrecoverable for the April runs.
+  - Code commits for the April runs are not in this repo. *Correction 2026-10-19 (P0.3):*
+    they are recoverable from the old repo `DeepCoaches-CMU/ultrascannet_reproduced`.
   - The ablation rows have no run at all.
 
   That's the honest outcome of this task. Per the handbook, those results should be

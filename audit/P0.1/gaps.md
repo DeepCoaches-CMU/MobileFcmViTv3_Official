@@ -9,7 +9,9 @@ facts about the evidence. None of them has been fixed here; fixes belong to late
 
 1. **The "held-out test set" results are validation-set results.** Table 2 (our model),
    Table 3, Table 4 macro-AUC and Fig. 2 all come from tune_05_augmix's checkpoint
-   (`tuning/tune_05_augmix/checkpoints/model_best.pth.tar`). It was reloaded in full
+   (the run loaded `tuning/tune_05_augmix/checkpoints/model_best.pth.tar`; *correction
+   2026-10-19, P0.3:* that path now holds a July retrain, and the April file survives as
+   `tuning/tune_05_augmix_oldsplit/checkpoints/model_best.pth.tar`). It was reloaded in full
    (318/318 params), scored at epoch 0 on the old 156-image validation set, and logged
    as `val/*` (W&B `run-20260425_065747-149rh2m3` and `run-20260425_071258-2z1ie560`).
    The run log says `Train: 624 | Val: 156`, and the split manifest in use
@@ -50,9 +52,13 @@ facts about the evidence. None of them has been fixed here; fixes belong to late
 ## B. Code version
 
 9. **Every April W&B run logged a commit from an earlier git history** (0df6e8c, 170f399,
-   1dbf997, 81ea701, e19e9fa). None of these commits exist in this clone or on any
-   remote branch after `git fetch --all`. The 2026-04-24 tune_05/tune_06 runs, which
-   produced the headline checkpoint, logged **no commit**.
+   1dbf997, 81ea701, e19e9fa). *Correction 2026-10-19 (P0.3):* these commits are not in
+   this repo, but **all five exist in the old repo
+   `git@github.com:DeepCoaches-CMU/ultrascannet_reproduced.git`** (the remote those runs
+   recorded), so the April code is recoverable. The model code there is byte-identical
+   to this repo's `5158ed1` (see `audit/P0.3/ARCHITECTURE_SPEC.md` §6). The tune_05/tune_06
+   runs that produced the headline checkpoint still logged **no commit**; the nearest
+   earlier commit is `e19e9fa` (2026-04-24 14:14 EDT).
 10. **A recorded commit isn't the code that ran.** The headline runs logged 5158ed1, but
     that commit's `mobilefcmvitv3_s_busi.yaml` points `pretrained_weights` at the VOC
     checkpoint, while the runs loaded tune_05's checkpoint. tune_11 logged b78bbef,

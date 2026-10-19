@@ -54,8 +54,9 @@ so don't write to it. Git tag: `p0.1-freeze-20261015`.
 5. 7.222 ms is a single desktop-GPU timing; the same model measured 3.7–11.9 ms elsewhere.
 6. No code in the repo implements the paper's preprocessing (anisotropic diffusion, CLAHE),
    the 1.59 s timing, the lesion-area statistics or the KS test.
-7. The April code versions can't be recovered, and recorded commits don't always match the
-   code that ran. Only 3 per-sample prediction CSVs exist, none of them for a paper number.
+7. *Corrected 2026-10-19:* the April commits are recoverable from the old repo
+   `DeepCoaches-CMU/ultrascannet_reproduced` (gaps.md item 9). Recorded commits still
+   don't always match the code that ran. Only 3 per-sample prediction CSVs exist, none of them for a paper number.
 
 ## Gate G0: next tasks
 
@@ -69,8 +70,13 @@ P0.2–P0.5 depend only on P0.1, so they can run in parallel.
 - **Steps:**
   1. Rebuild the 156-image list from `data/BUSI_split.json` against the raw BUSI images.
      `datasets/BUSI_split/` was rebuilt in July and no longer matches it.
-  2. Run `tuning/tune_05_augmix/checkpoints/model_best.pth.tar` on those images and save a
-     per-sample CSV with true label, prediction and class probabilities.
+  2. Run the **headline checkpoint** `checkpoints/mobilefcmvitv3_s_BUSI/model_best.pth.tar`
+     (and the April tune_05 weights it started from,
+     `tuning/tune_05_augmix_oldsplit/checkpoints/model_best.pth.tar`) on those images. Try
+     both the raw `state_dict` and `ema_state_dict`, since training kept whichever scored
+     higher. Save a per-sample CSV with true label, prediction and class probabilities.
+     *Correction 2026-10-19:* do **not** use `tuning/tune_05_augmix/checkpoints/model_best.pth.tar`;
+     that file is the July retrain (epoch 23, 89.57 %), not the April model.
   3. Confirm the CSV reproduces `[[83,2,2],[6,36,0],[0,1,26]]` and 92.95%. Recompute every
      metric from that one CSV with a script.
   4. Write the discrepancy report and record the retain/retire decision.
