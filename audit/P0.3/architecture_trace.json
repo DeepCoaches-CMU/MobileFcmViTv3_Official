@@ -1,0 +1,518 @@
+{
+  "code_version": "not a git checkout (git archive export)",
+  "cwd": "/tmp/claude-2715861/-home-jgibson2-projects-ultrascannet-reproduced/9d5753d7-d91b-4d34-b1ee-ef7d1c76cb8e/scratchpad/p03_clean",
+  "torch": "2.13.0+cu129",
+  "config": "tuning/tune_05_augmix.yaml",
+  "config_model_kwargs": {
+    "model": "mobilefcmvitv3_s",
+    "fcm_k": 3,
+    "fcm_proj_dim": 32,
+    "tau": 1.0,
+    "fcm_m": 2.0,
+    "membership": "softmax",
+    "normalize_feat": true,
+    "fusion_type": "attention",
+    "dropout": 0.1,
+    "attn_dropout": 0.0,
+    "ffn_dropout": 0.0,
+    "drop_path_rate": 0.1,
+    "lambda_clust": 0.01,
+    "lambda_entropy": 0.0,
+    "img_size": null,
+    "pretrained_weights": "tuning/tune_01_lr_aug/checkpoints/model_best.pth.tar"
+  },
+  "model_class": "MobileFCMViTv3",
+  "checkpoint_loads": [
+    {
+      "path": "/home/jgibson2/projects/ultrascannet_reproduced/checkpoints/mobilefcmvitv3_s_BUSI/model_best.pth.tar",
+      "sha256": "e038339e1c091f645de6b00f45682104e61fd9bf365f81c6829bee96d01d00d4",
+      "epoch": 0,
+      "top1": 92.94871833996895,
+      "state_dict": "strict load OK (318 tensors)",
+      "ema_state_dict": "strict load OK (318 tensors)",
+      "stem_conv_weight_shape": [
+        16,
+        3,
+        3,
+        3
+      ],
+      "head_tensors": {
+        "fcm_proj.weight": [
+          32,
+          640,
+          1,
+          1
+        ],
+        "clustering.centers": [
+          3,
+          32
+        ],
+        "fcm_fusion.proj.weight": [
+          640,
+          3,
+          1,
+          1
+        ],
+        "fcm_fusion.proj.bias": [
+          640
+        ],
+        "classifier.3.weight": [
+          3,
+          640
+        ],
+        "classifier.3.bias": [
+          3
+        ]
+      }
+    },
+    {
+      "path": "/home/jgibson2/projects/ultrascannet_reproduced/tuning/tune_05_augmix_oldsplit/checkpoints/model_best.pth.tar",
+      "sha256": "0145ca7f41a4af122a0688e5a4d5975d40a9461aee1b88b7aba46b349b54f3fd",
+      "epoch": 65,
+      "top1": 92.94871833996895,
+      "state_dict": "strict load OK (318 tensors)",
+      "ema_state_dict": "strict load OK (318 tensors)",
+      "stem_conv_weight_shape": [
+        16,
+        3,
+        3,
+        3
+      ],
+      "head_tensors": {
+        "fcm_proj.weight": [
+          32,
+          640,
+          1,
+          1
+        ],
+        "clustering.centers": [
+          3,
+          32
+        ],
+        "fcm_fusion.proj.weight": [
+          640,
+          3,
+          1,
+          1
+        ],
+        "fcm_fusion.proj.bias": [
+          640
+        ],
+        "classifier.3.weight": [
+          3,
+          640
+        ],
+        "classifier.3.bias": [
+          3
+        ]
+      }
+    },
+    {
+      "path": "/home/jgibson2/projects/ultrascannet_reproduced/tuning/tune_05_augmix/checkpoints/model_best.pth.tar",
+      "sha256": "25ecafc9320f33adf667837708b20ac24c4db6b960decf71d2c44e6b722d0f2d",
+      "epoch": 23,
+      "top1": 89.56521739130434,
+      "state_dict": "strict load OK (318 tensors)",
+      "ema_state_dict": "strict load OK (318 tensors)",
+      "stem_conv_weight_shape": [
+        16,
+        3,
+        3,
+        3
+      ],
+      "head_tensors": {
+        "fcm_proj.weight": [
+          32,
+          640,
+          1,
+          1
+        ],
+        "clustering.centers": [
+          3,
+          32
+        ],
+        "fcm_fusion.proj.weight": [
+          640,
+          3,
+          1,
+          1
+        ],
+        "fcm_fusion.proj.bias": [
+          640
+        ],
+        "classifier.3.weight": [
+          3,
+          640
+        ],
+        "classifier.3.bias": [
+          3
+        ]
+      }
+    },
+    {
+      "path": "/home/jgibson2/projects/ultrascannet_reproduced/ablation_results/mobilefcmvitv3_full_fcm_pretrained/checkpoints/model_best.pth.tar",
+      "sha256": "86a75f91cf30aab0a59a23b7d6b5858a560af148fdc7ec6fc78c8bc40af5bc3e",
+      "epoch": 221,
+      "top1": 86.95652173913044,
+      "state_dict": "strict load OK (318 tensors)",
+      "ema_state_dict": "strict load OK (318 tensors)",
+      "stem_conv_weight_shape": [
+        16,
+        3,
+        3,
+        3
+      ],
+      "head_tensors": {
+        "fcm_proj.weight": [
+          32,
+          640,
+          1,
+          1
+        ],
+        "clustering.centers": [
+          3,
+          32
+        ],
+        "fcm_fusion.proj.weight": [
+          640,
+          3,
+          1,
+          1
+        ],
+        "fcm_fusion.proj.bias": [
+          640
+        ],
+        "classifier.3.weight": [
+          3,
+          640
+        ],
+        "classifier.3.bias": [
+          3
+        ]
+      }
+    }
+  ],
+  "input_contract": {
+    "accepts": [
+      2,
+      3,
+      224,
+      224
+    ],
+    "returns": {
+      "logits": [
+        2,
+        3
+      ],
+      "compactness_loss": [],
+      "entropy_loss": []
+    },
+    "4_channel_input": "rejected: Given groups=1, weight of size [16, 3, 3, 3], expected input[2, 4, 224, 224] to have 3 channels, but got 4 channels instead"
+  },
+  "forward_shapes": [
+    {
+      "module": "conv_1",
+      "type": "ConvLayer",
+      "in": [
+        [
+          1,
+          3,
+          224,
+          224
+        ]
+      ],
+      "out": [
+        1,
+        16,
+        112,
+        112
+      ]
+    },
+    {
+      "module": "layer_1",
+      "type": "Sequential",
+      "in": [
+        [
+          1,
+          16,
+          112,
+          112
+        ]
+      ],
+      "out": [
+        1,
+        32,
+        112,
+        112
+      ]
+    },
+    {
+      "module": "layer_2",
+      "type": "Sequential",
+      "in": [
+        [
+          1,
+          32,
+          112,
+          112
+        ]
+      ],
+      "out": [
+        1,
+        64,
+        56,
+        56
+      ]
+    },
+    {
+      "module": "layer_3",
+      "type": "Sequential",
+      "in": [
+        [
+          1,
+          64,
+          56,
+          56
+        ]
+      ],
+      "out": [
+        1,
+        96,
+        28,
+        28
+      ]
+    },
+    {
+      "module": "layer_4",
+      "type": "Sequential",
+      "in": [
+        [
+          1,
+          96,
+          28,
+          28
+        ]
+      ],
+      "out": [
+        1,
+        128,
+        14,
+        14
+      ]
+    },
+    {
+      "module": "layer_5",
+      "type": "Sequential",
+      "in": [
+        [
+          1,
+          128,
+          14,
+          14
+        ]
+      ],
+      "out": [
+        1,
+        160,
+        7,
+        7
+      ]
+    },
+    {
+      "module": "conv_1x1_exp",
+      "type": "ConvLayer",
+      "in": [
+        [
+          1,
+          160,
+          7,
+          7
+        ]
+      ],
+      "out": [
+        1,
+        640,
+        7,
+        7
+      ]
+    },
+    {
+      "module": "fcm_proj",
+      "type": "Conv2d",
+      "in": [
+        [
+          1,
+          640,
+          7,
+          7
+        ]
+      ],
+      "out": [
+        1,
+        32,
+        7,
+        7
+      ]
+    },
+    {
+      "module": "clustering",
+      "type": "SoftClusteringLayer",
+      "in": [
+        [
+          1,
+          32,
+          7,
+          7
+        ]
+      ],
+      "out": [
+        [
+          1,
+          3,
+          7,
+          7
+        ],
+        [],
+        []
+      ]
+    },
+    {
+      "module": "fcm_fusion",
+      "type": "AttentionFusion",
+      "in": [
+        [
+          1,
+          640,
+          7,
+          7
+        ],
+        [
+          1,
+          3,
+          7,
+          7
+        ]
+      ],
+      "out": [
+        1,
+        640,
+        7,
+        7
+      ]
+    },
+    {
+      "module": "classifier.0",
+      "type": "AdaptiveAvgPool2d",
+      "in": [
+        [
+          1,
+          640,
+          7,
+          7
+        ]
+      ],
+      "out": [
+        1,
+        640,
+        1,
+        1
+      ]
+    },
+    {
+      "module": "classifier.1",
+      "type": "Flatten",
+      "in": [
+        [
+          1,
+          640,
+          1,
+          1
+        ]
+      ],
+      "out": [
+        1,
+        640
+      ]
+    },
+    {
+      "module": "classifier.3",
+      "type": "Linear",
+      "in": [
+        [
+          1,
+          640
+        ]
+      ],
+      "out": [
+        1,
+        3
+      ]
+    }
+  ],
+  "parameters": {
+    "per_module": {
+      "conv_1": 464,
+      "layer_1": 3968,
+      "layer_2": 86528,
+      "layer_3": 431984,
+      "layer_4": 1371968,
+      "layer_5": 1688672,
+      "conv_1x1_exp": 103680,
+      "fcm_proj": 20480,
+      "clustering": 96,
+      "fcm_fusion": 2560,
+      "classifier": 1923
+    },
+    "total": 3712323,
+    "total_M": 3.7123,
+    "fcm_path_total": 23136
+  },
+  "compute_224": {
+    "thop_reported_G": 1.1758,
+    "thop_note": "thop counts multiply-accumulates (MACs) of nn modules only; repo logs this as \"FLOPs\"",
+    "flop_counter_FLOPs_G": 2.2635,
+    "flop_counter_MACs_G": 1.1318,
+    "flop_counter_note": "torch.utils.flop_counter: all aten matmul/conv ops incl. attention, FLOPs = 2 x MACs"
+  },
+  "trained_cluster_behaviour": {
+    "n_images": 24,
+    "images_dir": "/home/jgibson2/projects/ultrascannet_reproduced/datasets/BUSI_split/validation",
+    "sample_seed": 0,
+    "membership_shape": [
+      24,
+      3,
+      7,
+      7
+    ],
+    "membership_min": 0.3333178460597992,
+    "membership_max": 0.3333493769168854,
+    "max_abs_dev_from_uniform": 1.6033649444580078e-05,
+    "mean_entropy_term": 0.36620405316352844,
+    "uniform_entropy_term_ln(K)/K": 0.3662041127681732,
+    "center_raw_norms": [
+      0.10112439095973969,
+      0.11809013783931732,
+      0.11525999754667282
+    ],
+    "center_pairwise_cosine": [
+      [
+        1.0,
+        1.0,
+        0.999999
+      ],
+      [
+        1.0,
+        1.0,
+        1.0
+      ],
+      [
+        0.999999,
+        1.0,
+        1.0
+      ]
+    ],
+    "normalize_feat": true,
+    "membership_mode": "softmax",
+    "tau": 1.0
+  }
+}
